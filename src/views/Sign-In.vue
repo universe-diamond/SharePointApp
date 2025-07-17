@@ -1,13 +1,7 @@
 <template>
-	<div class="sign-in">
-		Sign in
-	</div>
+  <div class="sign-in">Sign in</div>
 </template>
 
-<script setup>
+<script setup></script>
 
-</script>
-
-<style lang="scss">
-	
-</style>
+<style lang="scss"></style>

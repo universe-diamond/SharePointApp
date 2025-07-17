@@ -1,67 +1,109 @@
-
 <template>
   <div class="schedule-root">
     <div class="schedule-header">
-      <div class="schedule-title">🗓️ Weekly/Schedule</div>
       <div class="schedule-selects">
-        <span class="select-icon">📅</span>
+        <span class="select-icon">YEAR : </span>
         <select v-model="selectedYear" class="selectbox">
-          <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
+          <option v-for="year in years" :key="year" :value="year">
+            {{ year }}
+          </option>
         </select>
-        <span class="select-icon">🗓️</span>
+        <span class="select-icon">MONTH : </span>
         <select v-model="selectedMonth" class="selectbox">
-          <option v-for="(month, idx) in months" :key="month" :value="idx">{{ month }}</option>
+          <option v-for="(month, idx) in months" :key="month" :value="idx">
+            {{ month }}
+          </option>
         </select>
-        <span class="select-icon">#️⃣</span>
+        <span class="select-icon">WEEK : </span>
         <select v-model="selectedWeek" class="selectbox">
           <option :value="null">All Weeks</option>
-          <option v-for="(week, idx) in weeksInMonth" :key="week.label" :value="idx">{{ week.label }}</option>
+          <option
+            v-for="(week, idx) in weeksInMonth"
+            :key="week.label"
+            :value="idx"
+          >
+            {{ week.label }}
+          </option>
         </select>
       </div>
     </div>
-    <div class="schedule-card">
-      <table class="schedule-table">
-        <thead>
-          <tr>
-            <th class="left-header">{{ leftColumnHeader }}</th>
-            <th>Tasks</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, rowIdx) in tableRows" :key="row.label" :class="{ 'highlight-row': isCurrent(row.label) }">
-            <td class="left-col">{{ row.label }}</td>
-            <td>
-              <div class="task-list">
-                <transition-group name="fade" tag="span">
-                  <span v-for="(task, tIdx) in row.tasks" :key="task" class="task-chip">
-                    {{ task }}
-                    <button @click="removeTask(rowIdx, tIdx)" class="chip-remove">&times;</button>
-                  </span>
-                </transition-group>
-                <select v-model="selectedTask[rowIdx]" @change="addTask(rowIdx)" class="add-task-select">
-                  <option :value="null">Add task...</option>
-                  <option v-for="task in availableTasks(row.tasks)" :key="task" :value="task">{{ task }}</option>
-                </select>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <table class="schedule-table">
+      <thead>
+        <tr>
+          <th class="left-header">{{ leftColumnHeader }}</th>
+          <th>Tasks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          v-for="(row, rowIdx) in tableRows"
+          :key="row.label"
+          :class="{ 'highlight-row': isCurrent(row.label) }"
+        >
+          <td class="left-col">{{ row.label }}</td>
+          <td>
+            <div class="task-list">
+              <transition-group name="fade" tag="span">
+                <span
+                  v-for="(task, tIdx) in row.tasks"
+                  :key="task"
+                  class="task-chip"
+                >
+                  {{ task }}
+                  <button @click="removeTask(rowIdx, tIdx)" class="chip-remove">
+                    &times;
+                  </button>
+                </span>
+              </transition-group>
+              <select
+                v-model="selectedTask[rowIdx]"
+                @change="addTask(rowIdx)"
+                class="add-task-select"
+              >
+                <option :value="null">Add task...</option>
+                <option
+                  v-for="task in availableTasks(row.tasks)"
+                  :key="task"
+                  :value="task"
+                >
+                  {{ task }}
+                </option>
+              </select>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch } from "vue";
 
 const currentYear = new Date().getFullYear();
 const years = Array.from({ length: 5 }, (_, i) => currentYear - 2 + i);
 const months = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
 ];
 const tempTaskList = [
-  'Design UI', 'Write Documentation', 'Implement Feature X', 'Fix Bug Y', 'Code Review', 'Team Meeting', 'Deploy Release'
+  "Design UI",
+  "Write Documentation",
+  "Implement Feature X",
+  "Fix Bug Y",
+  "Code Review",
+  "Team Meeting",
+  "Deploy Release",
 ];
 
 const selectedYear = ref(currentYear);
@@ -83,7 +125,7 @@ function getWeeksInMonth(year, month) {
     weeks.push({
       label: `Week ${weeks.length + 1} (${weekStart}-${weekEnd})`,
       start: weekStart,
-      end: weekEnd
+      end: weekEnd,
     });
     weekStart = weekEnd + 1;
     weekEnd = weekStart + 6;
@@ -91,15 +133,17 @@ function getWeeksInMonth(year, month) {
   return weeks;
 }
 
-const weeksInMonth = computed(() => getWeeksInMonth(selectedYear.value, selectedMonth.value));
+const weeksInMonth = computed(() =>
+  getWeeksInMonth(selectedYear.value, selectedMonth.value)
+);
 const tableRows = ref([]);
 const selectedTask = ref([]);
 
 function resetTableRows() {
   if (selectedWeek.value === null) {
-    tableRows.value = weeksInMonth.value.map(week => ({
+    tableRows.value = weeksInMonth.value.map((week) => ({
       label: week.label,
-      tasks: []
+      tasks: [],
     }));
     selectedTask.value = Array(weeksInMonth.value.length).fill(null);
   } else {
@@ -108,8 +152,11 @@ function resetTableRows() {
     for (let d = week.start; d <= week.end; d++) {
       const date = new Date(selectedYear.value, selectedMonth.value, d);
       days.push({
-        label: date.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric' }),
-        tasks: []
+        label: date.toLocaleDateString(undefined, {
+          weekday: "long",
+          day: "numeric",
+        }),
+        tasks: [],
       });
     }
     tableRows.value = days;
@@ -117,7 +164,9 @@ function resetTableRows() {
   }
 }
 
-watch([selectedYear, selectedMonth, selectedWeek], resetTableRows, { immediate: true });
+watch([selectedYear, selectedMonth, selectedWeek], resetTableRows, {
+  immediate: true,
+});
 
 function addTask(rowIdx) {
   const task = selectedTask.value[rowIdx];
@@ -132,18 +181,24 @@ function removeTask(rowIdx, tIdx) {
 }
 
 function availableTasks(rowTasks) {
-  return tempTaskList.filter(task => !rowTasks.includes(task));
+  return tempTaskList.filter((task) => !rowTasks.includes(task));
 }
 
-const leftColumnHeader = computed(() => selectedWeek.value === null ? 'Week' : 'Day');
+const leftColumnHeader = computed(() =>
+  selectedWeek.value === null ? "Week" : "Day"
+);
 
 // Highlight current week/day
 function isCurrent(label) {
   if (selectedWeek.value === null) {
     // Highlight current week if in current month/year
-    if (selectedYear.value !== currentYear || selectedMonth.value !== new Date().getMonth()) return false;
+    if (
+      selectedYear.value !== currentYear ||
+      selectedMonth.value !== new Date().getMonth()
+    )
+      return false;
     const today = new Date().getDate();
-    const week = weeksInMonth.value.find(w => label === w.label);
+    const week = weeksInMonth.value.find((w) => label === w.label);
     return week && today >= week.start && today <= week.end;
   } else {
     // Highlight current day if in current week/month/year
@@ -151,19 +206,22 @@ function isCurrent(label) {
     const labelDate = label.match(/\d+/g);
     if (!labelDate) return false;
     const dayNum = parseInt(labelDate[labelDate.length - 1]);
-    return selectedYear.value === today.getFullYear() &&
+    return (
+      selectedYear.value === today.getFullYear() &&
       selectedMonth.value === today.getMonth() &&
-      dayNum === today.getDate();
+      dayNum === today.getDate()
+    );
   }
 }
 </script>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .schedule-root {
-  font-family: 'Segoe UI', 'Roboto', 'Arial', sans-serif;
-  background: linear-gradient(120deg, #f8fafc 0%, #e3e8f0 100%);
-  min-height: 100vh;
-  padding: 32px 0 0 0;
+  font-family: "Segoe UI", "Roboto", "Arial", sans-serif;
+  background: #ffffff;
+  border-radius: 15px;
+  min-height: 80vh;
+  padding: 2rem;
 }
 .schedule-header {
   display: flex;
@@ -184,9 +242,6 @@ function isCurrent(label) {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   padding: 8px 16px;
 }
 .selectbox {
@@ -209,7 +264,7 @@ function isCurrent(label) {
 .schedule-card {
   background: #fff;
   border-radius: 18px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.07);
   padding: 32px 32px 24px 32px;
   margin: 0 32px;
   min-height: 400px;
@@ -220,6 +275,7 @@ function isCurrent(label) {
   border-collapse: separate;
   border-spacing: 0;
   font-size: 1rem;
+  border-top: 1px solid #dddddd;
 }
 .schedule-table th {
   background: #f1f5f9;
@@ -237,12 +293,14 @@ function isCurrent(label) {
 }
 .left-header {
   width: 180px;
+  border-right: 1px solid #e7e8fd;
 }
 .left-col {
   background: #f8fafc;
   font-weight: 500;
   color: #6366f1;
   border-radius: 8px 0 0 8px;
+  border-right: 1px solid #e7e8fd;
 }
 .highlight-row td {
   background: linear-gradient(90deg, #e0e7ff 0%, #f1f5f9 100%) !important;
@@ -268,14 +326,22 @@ function isCurrent(label) {
   font-size: 14px;
   font-weight: 500;
   margin-right: 4px;
-  box-shadow: 0 2px 6px rgba(99,102,241,0.08);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.08);
   transition: transform 0.15s, box-shadow 0.15s;
   animation: popin 0.3s;
 }
 @keyframes popin {
-  0% { transform: scale(0.7); opacity: 0; }
-  80% { transform: scale(1.1); opacity: 1; }
-  100% { transform: scale(1); }
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  80% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 .chip-remove {
   margin-left: 8px;
@@ -303,10 +369,12 @@ function isCurrent(label) {
     border: 1.5px solid #6366f1;
   }
 }
-.fade-enter-active, .fade-leave-active {
+.fade-enter-active,
+.fade-leave-active {
   transition: all 0.3s;
 }
-.fade-enter-from, .fade-leave-to {
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
   transform: scale(0.7);
 }
