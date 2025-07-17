@@ -189,7 +189,7 @@ const notesSortedFiltered = computed(() =>
   width: 220px;
   background: #fff;
   border-right: 1.5px solid #e2e8f0;
-  padding: 32px 0 0 0;
+  padding: 32px 5px 0 0;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -302,6 +302,7 @@ const notesSortedFiltered = computed(() =>
   }
 }
 .notes-list {
+  min-width: 700px;
   max-width: 800px;
   margin: 0 auto;
   display: flex;
@@ -310,6 +311,7 @@ const notesSortedFiltered = computed(() =>
   margin-bottom: 32px;
   overflow-y: auto;
   max-height: calc(100vh - 260px);
+  padding: 10px;
 }
 .empty-notes {
   text-align: center;
