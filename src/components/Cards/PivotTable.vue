@@ -1,102 +1,17 @@
-<template>
-  <div class="pivot-section">
-    <div class="pivot-header">PIVOT TABLES</div>
-    <div class="row q-col-gutter-md q-mb-md">
-      <div class="col-4">
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6">Projects Timeline Progress %</div>
-            <q-table
-              :columns="pivotColumns1Q"
-              :rows="pivotData1Q"
-              dense
-              flat
-              :pagination="{rowsPerPage: 0}"
-              bordered
-              style="flex: 1; overflow: auto"
-            >
-              <template v-slot:bottom>
-                <div style="text-align: center">
-                  There are {{ pivotData1Q.length }} items.
-                </div>
-              </template>
-            </q-table>
-          </q-card-section>
-        </q-card>
-      </div>
-      <div class="col-4">
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6">Projects Progress in Days</div>
-            <q-table
-              :columns="pivotColumns2Q"
-              :rows="pivotData2Q"
-              dense
-              flat
-              :pagination="{rowsPerPage: 0}"
-              bordered
-              style="flex: 1; overflow: auto"
-            >
-              <template v-slot:bottom>
-                <div style="text-align: center">
-                  There are {{ pivotData2Q.length }} items.
-                </div>
-              </template>
-            </q-table>
-          </q-card-section>
-        </q-card>
-      </div>
-      <div class="col-4">
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6">Total Statuses</div>
-            <q-table
-              :columns="pivotColumns3Q"
-              :rows="pivotData3Q"
-              dense
-              flat
-              :pagination="{rowsPerPage: 0}"
-              bordered
-              style="flex: 1; overflow: auto"
-            >
-              <template v-slot:bottom>
-                <div style="text-align: center">
-                  There are {{ pivotData3Q.length }} items.
-                </div>
-              </template>
-            </q-table>
-          </q-card-section>
-        </q-card>
-      </div>
-    </div>
-    <div class="row q-col-gutter-md">
-      <div class="col-12">
-        <q-card flat bordered>
-          <q-card-section>
-            <div class="text-h6">Members Workload</div>
-            <q-table
-              :columns="pivotColumns4Q"
-              :rows="pivotData4Q"
-              dense
-              flat
-              :pagination="{rowsPerPage: 0}"
-              bordered
-              style="flex: 1; overflow: auto"
-            >
-              <template v-slot:bottom>
-                <div style="text-align: center">
-                  There are {{ pivotData4Q.length }} items.
-                </div>
-              </template>
-            </q-table>
-          </q-card-section>
-        </q-card>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
+  import { onMounted, ref } from 'vue';
+  import { getItem } from '../../actions/getItem';
+
+  const data = ref([]);
+
+  onMounted(() => {
+    const fields = ["Id", "Title", "timeline_progress", "status", "assigned_to"];
+
+    getItem("Plans", fields).then(res => {
+      data.value = res;
+    })
+  })
+
   const pivotColumns1Q = [
     { name: "project", label: "PROJECT", field: "project", align: "left" },
     { name: "progress", label: "PROGRESS %", field: "progress", align: "left" },
@@ -197,6 +112,104 @@
     },
   ];
 </script>
+
+<template>
+  <div class="pivot-section">
+    <div class="pivot-header">PIVOT TABLES</div>
+    <div class="row q-col-gutter-md q-mb-md">
+      <div class="col-4">
+        <q-card flat bordered>
+          <q-card-section>
+            <div class="text-h6">Projects Timeline Progress %</div>
+            <q-table
+              :columns="pivotColumns1Q"
+              :rows="pivotData1Q"
+              dense
+              flat
+              :pagination="{rowsPerPage: 0}"
+              bordered
+              style="flex: 1; overflow: auto"
+            >
+              <template v-slot:bottom>
+                <div style="text-align: center">
+                  There are {{ pivotData1Q.length }} items.
+                </div>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+      </div>
+      <div class="col-4">
+        <q-card flat bordered>
+          <q-card-section>
+            <div class="text-h6">Projects Progress in Days</div>
+            <q-table
+              :columns="pivotColumns2Q"
+              :rows="pivotData2Q"
+              dense
+              flat
+              :pagination="{rowsPerPage: 0}"
+              bordered
+              style="flex: 1; overflow: auto"
+            >
+              <template v-slot:bottom>
+                <div style="text-align: center">
+                  There are {{ pivotData2Q.length }} items.
+                </div>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+      </div>
+      <div class="col-4">
+        <q-card flat bordered>
+          <q-card-section>
+            <div class="text-h6">Total Statuses</div>
+            <q-table
+              :columns="pivotColumns3Q"
+              :rows="pivotData3Q"
+              dense
+              flat
+              :pagination="{rowsPerPage: 0}"
+              bordered
+              style="flex: 1; overflow: auto"
+            >
+              <template v-slot:bottom>
+                <div style="text-align: center">
+                  There are {{ pivotData3Q.length }} items.
+                </div>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+      </div>
+    </div>
+    <div class="row q-col-gutter-md">
+      <div class="col-12">
+        <q-card flat bordered>
+          <q-card-section>
+            <div class="text-h6">Members Workload</div>
+            <q-table
+              :columns="pivotColumns4Q"
+              :rows="pivotData4Q"
+              dense
+              flat
+              :pagination="{rowsPerPage: 0}"
+              bordered
+              style="flex: 1; overflow: auto"
+            >
+              <template v-slot:bottom>
+                <div style="text-align: center">
+                  There are {{ pivotData4Q.length }} items.
+                </div>
+              </template>
+            </q-table>
+          </q-card-section>
+        </q-card>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
   .pivot-section {
