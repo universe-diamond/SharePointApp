@@ -12,7 +12,7 @@ const headers = {
   "X-RequestDigest": null,
   "Content-Type": "application/json;odata=verbose",
   "If-Match": "*",
-  Accept: "application/json;odata=nometadata",
+  Accept: "application/json;odata=minimalmetadata",
 };
 
 const useLocalStorage = false;
@@ -88,21 +88,20 @@ export async function loadRequestDigest() {
   })();
 }
 
-export async function axiosRequest(method, ListName, details = null, body = null) {
+export async function axiosRequest(method, ListName, details = null, body = null, fullUrl = false) {
 
   let res = {};
 
-  if(method == 'get' || method == "delete") {
-    res = await axios[method](
-      `${sharepointSiteUrl}/_api/web/lists/getbytitle('${ListName}')/items` + (details || ""),
-      {headers }
-    );
-  } else {
-    res = await axios[method](
-      `${sharepointSiteUrl}/_api/web/lists/getbytitle('${ListName}')/items` + (details || ""),
-      body,
-      { headers }
-    );
+  const url = fullUrl ? details : `${sharepointSiteUrl}/_api/web/lists/getbytitle('${ListName}')/items` + (details || "");
+
+  try {
+    if(method == 'get' || method == "delete") {
+      res = await axios[method](url, { headers });
+    } else {
+      res = await axios[method](url, body, { headers });
+    }
+  } catch (error) {
+    console.log(error)
   }
 
   if (res.status == 401) {
@@ -110,9 +109,10 @@ export async function axiosRequest(method, ListName, details = null, body = null
     return window.location.reload();
   }
 
-  if (method == "put" || method == "delete") return;
+  if (method == "patch" || method == "delete") return;
 
   const data = await res.data;
 
-  return method == "get" ? data.value : data;
+  // For GET requests, return full response object to preserve @odata.nextLink
+  return method == "get" ? data : data;
 }

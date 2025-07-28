@@ -13,7 +13,6 @@
   const noteTypes = ref([]);
   const notes = ref([]);
 
-  const selectedType = ref('All');
   const newNote = ref("");
   const typeSearch = ref("");
 
@@ -57,7 +56,8 @@
   )
 
   function selectType(type) {
-    selectedType.value = type;
+    noteStore.currentType = type;
+    noteStore.setCurrentType(type);
   }
 
   const filteredNoteTypes = computed(() => {
@@ -139,15 +139,15 @@
   }
 
   const notesFiltered = computed(() =>
-    selectedType.value === 'All'
+    noteStore.currentType === 'All'
       ? notes.value
-      : notes.value.filter((n) => n.type === selectedType.value)
+      : notes.value.filter((n) => n.type === noteStore.currentType)
   );
   const notesSortedFiltered = computed(() =>
     notesFiltered.value.slice().sort((a, b) => b.updated_date - a.updated_date)
   );
 
-const pageSize = ref(5);
+const pageSize = ref(3);
 const currentPage = ref(1);
 const totalPages = computed(() =>
   Math.ceil(notesSortedFiltered.value.length / pageSize.value)
@@ -178,7 +178,7 @@ watch(notesSortedFiltered, () => {
         />
         <ul class="note-types-list">
           <li
-            :class="{ selected: selectedType === 'All' }"
+            :class="{ selected: noteStore.currentType === 'All' }"
             @click="selectType('All')"
           >
             All
@@ -186,7 +186,7 @@ watch(notesSortedFiltered, () => {
           <li
             v-for="type in filteredNoteTypes"
             :key="type"
-            :class="{ selected: selectedType === type }"
+            :class="{ selected: noteStore.currentType === type }"
             @click="selectType(type)"
           >
             {{ type }}

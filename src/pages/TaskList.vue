@@ -1,5 +1,6 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
+import * as XLSX from 'xlsx'
 
 import { useTaskStore } from "../store";
 import { addItem } from "../actions/addItem";
@@ -7,6 +8,7 @@ import { getItem } from "../actions/getItem";
 import { editItem } from "../actions/editItem";
 import { deleteItem } from "../actions/deleteItem";
 import LoadingSpinner from '../components/LoadingSpinner.vue';
+import { getAllItems } from "../actions/getAllItem";
 
 const taskStore = useTaskStore();
 
@@ -14,7 +16,77 @@ const taskRows = ref([]);
 
 const searchText = ref("");
 
-const selectedProject = ref("");
+const fileInput = ref(null);
+
+const isImporting = ref(false);
+const importProgress = ref(0);
+const importTotal = ref(0);
+const importCurrent = ref(0);
+
+const handleFileUpload = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  isImporting.value = true;
+  importProgress.value = 0;
+  importCurrent.value = 0;
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+
+    let jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+    const importedTasks = jsonData.map(row => ({
+      project_name: String(row['ProjectName'] || ''),
+      phase: String(row['Phase'] || ''),
+      task: String(row['Task'] || ''),
+      sub_task: String(row['SubTask'] || ''),
+      description: String(row['Description'] || ''),
+      groups: String(row['Groups'] || ''),
+      architecture: String(row['Architecture'] || ''),
+    }));
+
+    const validTasks = importedTasks.filter(t =>
+      t.project_name.trim() &&
+      t.phase.trim() &&
+      t.task.trim() &&
+      t.sub_task.trim()
+    );
+
+    importTotal.value = validTasks.length;
+    importCurrent.value = 0;
+
+    for (let i = 0; i < validTasks.length; i++) {
+      const task = validTasks[i];
+      try {
+        const res = await addItem("Tasks", task);
+        taskStore.addTask({ ...task, ID: res.ID });
+        
+        importCurrent.value = i + 1;
+        importProgress.value = Math.round((importCurrent.value / importTotal.value) * 100);
+        
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error("Failed to add task:", task, error);
+      }
+    }
+
+    event.target.value = '';
+    
+  } catch (error) {
+    console.error("Error importing file:", error);
+  } finally {
+    setTimeout(() => {
+      isImporting.value = false;
+      importProgress.value = 0;
+      importCurrent.value = 0;
+      importTotal.value = 0;
+    }, 1000);
+  }
+};
 
 const newTask = ref({
   project_name: "",
@@ -58,7 +130,7 @@ onMounted(() => {
 
   const fields2 = ["ID", "Title", "phases"];
 
-  getItem("Tasks", fields1).then(async res => {
+  getAllItems("Tasks", fields1).then(async res => {
     getItem("Projects", fields2).then(res2 => {
       taskStore.setProjects(res2);
     })
@@ -86,13 +158,13 @@ const filteredTasks = () => {
 
   return taskRows.value.filter(
     (task) =>
-      task.project_name.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      task.phase.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      task.task.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      task.sub_task.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      task.description.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      task.groups.toLowerCase().includes(searchText.value.toLowerCase()) ||
-      task.architecture.toLowerCase().includes(searchText.value.toLowerCase())
+      (task.project_name && task.project_name.toLowerCase().includes(searchText.value.toLowerCase())) ||
+      (task.phase && task.phase.toLowerCase().includes(searchText.value.toLowerCase())) ||
+      (task.task && task.task.toLowerCase().includes(searchText.value.toLowerCase())) ||
+      (task.sub_task && task.sub_task.toLowerCase().includes(searchText.value.toLowerCase())) ||
+      (task.description && task.description.toLowerCase().includes(searchText.value.toLowerCase())) ||
+      (task.groups && task.groups.toLowerCase().includes(searchText.value.toLowerCase())) ||
+      (task.architecture && task.architecture.toLowerCase().includes(searchText.value.toLowerCase()))
   );
 };
 
@@ -272,11 +344,11 @@ function handleEditProjectChange(val, row) {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin: 3rem 0;
+            margin: 1rem 0;
           "
         >
           <div style="flex: 1; max-width: 300px">
-            <q-input white dense outlined rounded placeholder="Search tasks..." @search="handleSearch" style="width: 100%" v-model="searchText" class="q-ml-md">
+            <q-input white dense outlined rounded placeholder="Search tasks..." @search="handleSearch" style="width: 100%" v-model="searchText" class="q-ml-md" :disable="isImporting">
               <template v-slot:append>
                 <q-icon v-if="searchText === ''" name="search" />
                 <q-icon v-else name="clear" class="cursor-pointer" @click="searchText = ''" />
@@ -289,6 +361,7 @@ function handleEditProjectChange(val, row) {
               icon="add"
               @click="addNewRow"
               style="margin-right: 8px"
+              :disable="isImporting"
             >
               <div>Add</div>
             </q-btn>
@@ -296,15 +369,49 @@ function handleEditProjectChange(val, row) {
               color="red"
               icon="delete"
               @click="deleteSelectedRows"
-              :disabled="!hasSelectedRows"
+              :disabled="!hasSelectedRows || isImporting"
+              style="margin-right: 8px"
             >
               <div>Delete</div>
             </q-btn>
+
+            <q-btn color="secondary" icon="file_upload" label="Import Excel" @click="$refs.fileInput.click()" :disable="isImporting" />
+            <input
+              type="file"
+              ref="fileInput"
+              style="display:none"
+              accept=".xls,.xlsx"
+              @change="handleFileUpload"
+            />
+          </div>
+        
+        </div>
+        <div style="text-align: right; margin-bottom: 1rem">
+          <a href="/src/assets/data/Tasklist_template.xlsx">Tasklist_template.xlsx</a>
+        </div>
+
+        <div v-if="isImporting" class="q-pa-md" style="background: #f0f8ff; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #e3f2fd;">
+          <div class="text-h6 q-mb-sm" style="color: #1976d2;">
+            <q-icon name="file_download" class="q-mr-sm" />
+            Importing Excel Data...
+          </div>
+          <div class="q-mb-sm">
+            <div class="text-caption q-mb-xs">
+              Progress: {{ importCurrent }} / {{ importTotal }} tasks ({{ importProgress }}%)
+            </div>
+            <q-linear-progress
+              :value="importProgress / 100"
+              color="primary"
+              size="md"
+              style="height: 8px;"
+            />
+          </div>
+          <div class="text-caption" style="color: #666;">
+            Please wait while tasks are being imported...
           </div>
         </div>
 
-        <!-- Add Task Form -->
-        <div v-if="showAddForm" class="q-pa-md" style="background: #f9f9f9; border-radius: 8px; margin-bottom: 1rem;">
+        <div v-if="showAddForm" class="q-pa-md" style="background: #f9f9f9; border-radius: 8px; margin-bottom: 1rem;" :class="{ 'disabled-form': isImporting }">
           <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
             <q-select
               v-model="newTask.project_name"
@@ -333,7 +440,7 @@ function handleEditProjectChange(val, row) {
             <q-input v-for="field in ['task','sub_task','description','groups','architecture']"
               :key="field"
               v-model="newTask[field]"
-              :label="field.charAt(0).toUpperCase() + field.slice(1)"
+              :label="field.charAt(0).toUpperCase() + field.slice(1).replace('_', '')"
               dense outlined :error="isFieldInvalid(field, newTask) && newConfirmState"
               :error-message="(isFieldInvalid(field, newTask) && newConfirmState) ? 'Required' : ''"
               style="min-width: 120px; max-width: 190px;"
@@ -360,6 +467,7 @@ function handleEditProjectChange(val, row) {
           separator="horizontal"
           style="border: 1px solid #ececec;"
           :pagination="pagination"
+          :disable="isImporting"
         >
           <template v-slot:body="props">
             <q-tr :props="props" :key="props.row.key" :class="{ 'editing-row': props.row.isEditing }">
@@ -454,5 +562,10 @@ function handleEditProjectChange(val, row) {
   background: #ffffff;
   min-height: 80vh;
   border-radius: 15px;
+}
+
+.disabled-form {
+  opacity: 0.6;
+  pointer-events: none;
 }
 </style>

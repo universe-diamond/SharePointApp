@@ -40,7 +40,7 @@
   },
   {
     icon: 'calendar_month', // or 'date_range'
-    label: 'Weekly / Monthly Schedule',
+    label: 'Weekly Schedule',
     linkTo: '/schedule',
     separator: false
   },

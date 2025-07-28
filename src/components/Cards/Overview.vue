@@ -19,6 +19,7 @@ onMounted(() => {
   const fields = ["ID", "Title", "phases", "members"];
   getItem("Projects", fields).then(res => {
     projects.value = res;
+    selectedProject.value = res[0].Title
   })
 })
 
@@ -95,7 +96,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <SunburstCard />
+            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject"/>
           </q-card-section>
         </q-card>
       </div>
@@ -136,7 +137,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <ProjectProgressCard />
+            <ProjectProgressCard :selectedProject="selectedProject" />
           </q-card-section>
         </q-card>
       </div>
@@ -166,11 +167,11 @@ function toggleMember(member) {
         </q-card>
       </div> -->
       <div class="col-6">
-        <q-card flat bordered>
-          <q-card-section>
-            <ProjectTimelineCard />
-          </q-card-section>
-        </q-card>
+          <q-card flat bordered>
+            <q-card-section>
+              <ProjectTimelineCard :selectedProject="selectedProject" />
+            </q-card-section>
+          </q-card>
       </div>
     </div>
   </div>

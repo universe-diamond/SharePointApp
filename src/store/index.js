@@ -15,45 +15,6 @@ export const useUserStore = defineStore('user', {
   }
 })
 
-export const useTaskStore = defineStore('task', {
-  state: () => ({
-    projectList: [],
-    taskList: [],
-    loading: false,
-    miniLoading: false
-  }),
-  actions: {
-    setProjects(payload) {
-      this.projectList = payload
-    },
-    setTasks (payload) {
-      this.taskList = payload;
-    },
-    addTask (payload) {
-      this.taskList.push(payload);
-    },
-    deleteTasks(payload) {
-      this.taskList = this.taskList.filter(item => payload.indexOf(item.ID) === -1);
-    },
-    editTask (payload) {
-      const editedTask = this.taskList.find(item => item.ID == payload.ID);
-      editedTask.project_name = payload.project_name;
-      editedTask.position = payload.position;
-      editedTask.task = payload.task;
-      editedTask.sub_task = payload.sub_task;
-      editedTask.description = payload.description;
-      editedTask.groups = payload.groups;
-      editedTask.architecture = payload.architecture;
-    },
-    setLoading(val) {
-      this.loading = val;
-    },
-    setMiniLoading(val) {
-      this.miniLoading = val;
-    }
-  }
-})
-
 export const useProjectStore = defineStore('project', {
   state: () => ({
     setups: [],
@@ -94,43 +55,72 @@ export const useProjectStore = defineStore('project', {
   }
 })
 
-export const useNoteStore = defineStore('note', {
+export const useTaskStore = defineStore('task', {
   state: () => ({
     projectList: [],
-    typeList: [],
-    currentType: "",
-    noteList: [],
+    taskList: [],
     loading: false,
+    miniLoading: false
   }),
   actions: {
-    setProjectList (payload) {
+    setProjects(payload) {
       this.projectList = payload
     },
-    setTypeList (payload) {
-      this.typeList = payload;
-      this.setCurrentType(payload[0]);
+    setTasks (payload) {
+      this.taskList = payload;
     },
-    setCurrentType(payload) {
-      this.currentType = payload;
+    addTask (payload) {
+      this.taskList.push(payload);
     },
-    setNoteList(payload) {
-      this.noteList = payload
+    deleteTasks(payload) {
+      this.taskList = this.taskList.filter(item => payload.indexOf(item.ID) === -1);
     },
-    addNote (payload) {
-      this.noteList.unshift(payload);
-    },
-    editNote(payload) {
-      console.log("111",payload)
-      console.log(this.noteList)
-      const editedNote = this.noteList.find(item => item.ID == payload.ID);
-      console.log("222",editedNote)
-      editedNote.content = payload.content;
-      editedNote.updated_date = payload.updated_date;
-      console.log("333",this.noteList)
+    editTask (payload) {
+      const editedTask = this.taskList.find(item => item.ID == payload.ID);
+      editedTask.project_name = payload.project_name;
+      editedTask.position = payload.position;
+      editedTask.task = payload.task;
+      editedTask.sub_task = payload.sub_task;
+      editedTask.description = payload.description;
+      editedTask.groups = payload.groups;
+      editedTask.architecture = payload.architecture;
     },
     setLoading(val) {
       this.loading = val;
     },
+    setMiniLoading(val) {
+      this.miniLoading = val;
+    }
+  }
+})
+
+export const useDailytaskStore = defineStore('dailytask', {
+  state: () => ({
+    schedule: [],
+    allTasks: [],
+    allBoards: [],
+    availableTasks: [],
+  }),
+  actions: {
+    setAvailableTasks(payload) {
+      this.availableTasks = this.allTasks.filter(item => payload.includes(item.task)).map(item => {return {id: item.ID, title: item.sub_task, code: item.phase}});
+    },
+    setSchedule (payload) {
+      this.schedule = payload
+    },
+    setAllTasks(payload) {
+      this.allTasks = payload
+    },
+    setAllBoards(payload) {
+      this.allBoards = payload;
+    },
+    addBoard(payload) {
+      this.allBoards.push(payload)
+    },
+    updateBoard(id, task_ids) {
+      const updated = this.allBoards.find(item => item.ID == id);
+      updated.task_ids = task_ids.join(',');
+    }
   }
 })
 
@@ -245,6 +235,46 @@ export const useScheduleStore = defineStore('schedule', {
   }
 })
 
+export const useNoteStore = defineStore('note', {
+  state: () => ({
+    projectList: [],
+    typeList: [],
+    currentType: "All",
+    noteList: [],
+    loading: false,
+  }),
+  actions: {
+    setProjectList (payload) {
+      this.projectList = payload
+    },
+    setTypeList (payload) {
+      this.typeList = payload;
+      this.setCurrentType(payload[0]);
+    },
+    setCurrentType(payload) {
+      this.currentType = payload;
+    },
+    setNoteList(payload) {
+      this.noteList = payload
+    },
+    addNote (payload) {
+      this.noteList.unshift(payload);
+    },
+    editNote(payload) {
+      console.log("111",payload)
+      console.log(this.noteList)
+      const editedNote = this.noteList.find(item => item.ID == payload.ID);
+      console.log("222",editedNote)
+      editedNote.content = payload.content;
+      editedNote.updated_date = payload.updated_date;
+      console.log("333",this.noteList)
+    },
+    setLoading(val) {
+      this.loading = val;
+    },
+  }
+})
+
 export const useTimelineStore = defineStore('timeline', {
   state: () => ({
     timelineList: []
@@ -268,45 +298,11 @@ export const useTimelineStore = defineStore('timeline', {
 
 export const useSunburstStore = defineStore('sunburst', {
   state: () => ({
-    progressingData: [],
     taskData: []
   }),
   actions: {
-    setProgressing(payload) {
-      this.progressingData = payload
-    },
     setTaskData(payload) {
       this.taskData = payload
-    }
-  }
-})
-
-export const useDailytaskStore = defineStore('dailytask', {
-  state: () => ({
-    schedule: [],
-    allTasks: [],
-    allBoards: [],
-    availableTasks: [],
-  }),
-  actions: {
-    setAvailableTasks(payload) {
-      this.availableTasks = this.allTasks.filter(item => payload.includes(item.task)).map(item => {return {id: item.ID, title: item.sub_task, code: item.phase}});
-    },
-    setSchedule (payload) {
-      this.schedule = payload
-    },
-    setAllTasks(payload) {
-      this.allTasks = payload
-    },
-    setAllBoards(payload) {
-      this.allBoards = payload;
-    },
-    addBoard(payload) {
-      this.allBoards.push(payload)
-    },
-    updateBoard(id, task_ids) {
-      const updated = this.allBoards.find(item => item.ID == id);
-      updated.task_ids = task_ids.join(',');
     }
   }
 })

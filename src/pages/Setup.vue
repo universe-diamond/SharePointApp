@@ -74,7 +74,7 @@
           ProjectTitle: source.Title,
           columns: Object.keys(source).slice(2).map(item => {
             return {
-              title: item == "key_IDs" ? "KEY" : item,
+              title: item == "key_IDs" ? "KEY" : (item == 'note_types' ? "NOTE TYPES" : item),
               items: source[item] ? source[item].split(",") : []
             }
           })
