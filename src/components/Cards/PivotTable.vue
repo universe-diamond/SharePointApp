@@ -1,9 +1,8 @@
 <script setup>
-import { onMounted, ref, watch } from "vue";
+import { onMounted, ref, watch, computed } from "vue";
 import { getItem } from "../../actions/getItem";
 import { getAllItems } from "../../actions/getAllItem";
 
-const planData = ref([]);
 const taskData = ref([]);
 const projectData = ref([]);
 const pivotData1Q = ref([]);
@@ -16,6 +15,31 @@ const tableLoading = ref({
   table2: true,
   table3: true,
   table4: true,
+});
+const selectedProject = ref(null);
+
+const filteredTasks = computed(() => {
+  if (!selectedProject.value) return [];
+
+  return taskData.value.filter((task) => task.project_name === selectedProject.value);
+});
+
+const currentStatusList = computed(() => {
+  if (!selectedProject.value) return [];
+
+  const project = projectData.value.find((p) => p.Title === selectedProject.value);
+
+  return project
+    ? project.status
+      ? project.status.split(",").map((it) => {
+          const [name, color] = it.split("#");
+          return {
+            name,
+            color: "#" + color,
+          };
+        })
+      : []
+    : [];
 });
 
 onMounted(() => {
@@ -31,34 +55,25 @@ onMounted(() => {
     "passed_days",
     "left_days",
     "timeline_progress",
+    "project_name",
+    "phase",
     "status",
   ];
-  const fields2 = ["ID", "project_name", "phase", "task", "sub_task"];
-  const fields3 = ["ID", "Title", "Phases", "members", "status"];
-  getItem("Plans", fields1).then((res) => {
-    planData.value = res;
-  });
-  getAllItems("Tasks", fields2).then((res) => {
+  const fields2 = ["ID", "Title", "phases", "members", "status"];
+
+  getAllItems("Tasks", fields1).then((res) => {
     taskData.value = res;
   });
-  getItem("Projects", fields3).then((res) => {
+  getItem("Projects", fields2).then((res) => {
     projectData.value = res;
   });
-
-  // Fallback timeout to hide loading if data doesn't load within 10 seconds
-  setTimeout(() => {
-    if (isLoading.value) {
-      isLoading.value = false;
-      console.warn("Loading timeout reached - hiding spinner");
-    }
-  }, 10000);
 });
 
 // Watch for data changes and process when both datasets are available
 watch(
-  [planData, taskData],
-  ([plans, tasks]) => {
-    if (plans.length > 0 && tasks.length > 0) {
+  [taskData],
+  ([tasks]) => {
+    if (tasks.length > 0) {
       processPhaseProgress();
       processProjectProgress();
       processStatusCounts();
@@ -69,9 +84,15 @@ watch(
   { deep: true }
 );
 
+watch(selectedProject, () => {
+  processPhaseProgress();
+  processProjectProgress();
+  processStatusCounts();
+  processMemberWorkload();
+});
+
 const processPhaseProgress = () => {
-  const plans = planData.value;
-  const tasks = taskData.value;
+  const tasks = filteredTasks.value;
 
   const taskToPhaseMap = {};
   tasks.forEach((task) => {
@@ -81,34 +102,31 @@ const processPhaseProgress = () => {
 
   const phaseGroups = {};
 
-  plans.forEach((plan) => {
-    let phase;
+  tasks.forEach((task) => {
+    let phase = task.phase;
 
-    if (taskToPhaseMap[plan.Title]) {
-      phase = taskToPhaseMap[plan.Title];
-
-      if (!phaseGroups[phase]) {
-        phaseGroups[phase] = [];
-      }
-      phaseGroups[phase].push(plan);
+    if (!phaseGroups[phase]) {
+      phaseGroups[phase] = [];
     }
+
+    phaseGroups[phase].push(task);
   });
 
   // Calculate progress for each phase
   const phaseProgress = [];
 
-  Object.entries(phaseGroups).forEach(([phase, plans]) => {
-    if (plans.length > 0) {
-      const validPlans = plans.filter(
-        (plan) => plan.timeline_progress !== null && plan.timeline_progress !== undefined
+  Object.entries(phaseGroups).forEach(([phase, tasks]) => {
+    if (tasks.length > 0) {
+      const validTasks = tasks.filter(
+        (task) => task.timeline_progress !== null && task.timeline_progress !== undefined
       );
 
-      if (validPlans.length > 0) {
-        const totalProgress = validPlans.reduce((sum, plan) => {
-          return sum + (parseFloat(plan.timeline_progress) || 0);
+      if (validTasks.length > 0) {
+        const totalProgress = validTasks.reduce((sum, task) => {
+          return sum + (parseFloat(task.timeline_progress) || 0);
         }, 0);
 
-        const averageProgress = totalProgress / validPlans.length;
+        const averageProgress = totalProgress / validTasks.length;
 
         phaseProgress.push({
           phase: phase,
@@ -133,8 +151,7 @@ const processPhaseProgress = () => {
 
 // Function to process phase timeline data for second table
 const processProjectProgress = () => {
-  const plans = planData.value;
-  const tasks = taskData.value;
+  const tasks = filteredTasks.value;
 
   // Create a mapping from task title to phase (same as in processPhaseProgress)
   const taskToPhaseMap = {};
@@ -146,32 +163,27 @@ const processProjectProgress = () => {
   // Group plans by phase
   const phaseGroups = {};
 
-  plans.forEach((plan) => {
-    let phase;
+  tasks.forEach((task) => {
+    let phase = task.phase;
 
-    // Try exact match first
-    if (taskToPhaseMap[plan.Title]) {
-      phase = taskToPhaseMap[plan.Title];
-
-      if (!phaseGroups[phase]) {
-        phaseGroups[phase] = [];
-      }
-      phaseGroups[phase].push(plan);
+    if (!phaseGroups[phase]) {
+      phaseGroups[phase] = [];
     }
+    phaseGroups[phase].push(task);
   });
 
   // Calculate timeline for each phase
   const phaseTimeline = [];
   const today = new Date();
 
-  Object.entries(phaseGroups).forEach(([phase, plans]) => {
-    if (plans.length > 0) {
+  Object.entries(phaseGroups).forEach(([phase, tasks]) => {
+    if (tasks.length > 0) {
       // Find earliest start date and latest end date for this phase
-      const validPlans = plans.filter((plan) => plan.start_date && plan.deadline_date);
+      const validTasks = tasks.filter((plan) => plan.start_date && plan.deadline_date);
 
-      if (validPlans.length > 0) {
+      if (validTasks.length > 0) {
         // Find earliest start date
-        const startDates = validPlans
+        const startDates = validTasks
           .map((plan) => {
             const date = new Date(plan.start_date);
             return isNaN(date.getTime()) ? null : date;
@@ -180,7 +192,7 @@ const processProjectProgress = () => {
         const earliestStart = startDates.length > 0 ? new Date(Math.min(...startDates)) : null;
 
         // Find latest end date
-        const endDates = validPlans
+        const endDates = validTasks
           .map((plan) => {
             const date = new Date(plan.deadline_date);
             return isNaN(date.getTime()) ? null : date;
@@ -188,8 +200,8 @@ const processProjectProgress = () => {
           .filter((date) => date !== null);
         const latestEnd = endDates.length > 0 ? new Date(Math.max(...endDates)) : null;
 
-        let daysPassed = "NOT STARTED";
-        let daysLeft = "DONE";
+        let daysPassed = "-";
+        let daysLeft = "-";
 
         if (earliestStart) {
           const daysDiff = Math.floor((today - earliestStart) / (1000 * 60 * 60 * 24));
@@ -214,8 +226,8 @@ const processProjectProgress = () => {
         // No valid dates found
         phaseTimeline.push({
           phase: phase,
-          daysPassed: "NOT STARTED",
-          daysLeft: "DONE",
+          daysPassed: "-",
+          daysLeft: "-",
         });
       }
     }
@@ -230,42 +242,25 @@ const processProjectProgress = () => {
 
 // Function to process status counts for third table
 const processStatusCounts = () => {
-  const plans = planData.value;
-
-  // Define the five statuses we want to track
-  const targetStatuses = ["completed", "notstarted", "delayed", "inprogress", "roadblock"];
+  const tasks = filteredTasks.value;
+  const targetStatuses = currentStatusList.value.length > 0 ? currentStatusList.value : [];
 
   // Initialize counts for all target statuses
   const statusCounts = {};
   targetStatuses.forEach((status) => {
-    statusCounts[status] = 0;
+    statusCounts[status.name] = 0;
   });
 
-  // Count statuses from plans data
-  const foundStatuses = new Set();
-  plans.forEach((plan) => {
-    const status = plan.status || "notstarted"; // Default to notstarted if no status
-    foundStatuses.add(status);
-
-    // Check if the status matches any of our target statuses
-    if (targetStatuses.includes(status)) {
+  // Count statuses from tasks data
+  tasks.forEach((task) => {
+    const status = task.status || targetStatuses[0].name || "Open";
+    if (statusCounts.hasOwnProperty(status)) {
       statusCounts[status]++;
-    } else {
-      // If status doesn't match our targets, count as 'notstarted'
-      statusCounts["notstarted"]++;
     }
   });
 
-  const statusLabels = {
-    completed: "COMPLETED",
-    notstarted: "NOT STARTED",
-    delayed: "DELAYED",
-    inprogress: "ON GOING",
-    roadblock: "PENDING",
-  };
-
-  const statusData = targetStatuses.map((status) => ({
-    status: statusLabels[status],
+  const statusData = Object.keys(statusCounts).map((status) => ({
+    status,
     count: statusCounts[status],
   }));
 
@@ -275,53 +270,25 @@ const processStatusCounts = () => {
 
 // Function to process member workload for fourth table
 const processMemberWorkload = () => {
-  const plans = planData.value;
-
-  const targetStatuses = ["completed", "notstarted", "delayed", "inprogress", "roadblock"];
+  const tasks = filteredTasks.value;
+  const targetStatuses = currentStatusList.value.length > 0 ? currentStatusList.value : [];
 
   const memberGroups = {};
-  const foundMembers = new Set();
-
-  plans.forEach((plan) => {
-    const member = plan.assigned_to || "Unassigned";
-    foundMembers.add(member);
-    const status = plan.status || "notstarted";
-
+  tasks.forEach((task) => {
+    const member = task.assigned_to || "Unassigned";
     if (!memberGroups[member]) {
-      memberGroups[member] = {
-        member: member,
-        completed: 0,
-        ongoing: 0,
-        delayed: 0,
-        pending: 0,
-        notStarted: 0,
-      };
+      memberGroups[member] = { member };
+      targetStatuses.forEach((status) => {
+        memberGroups[member][status.name] = 0;
+      });
     }
-
-    // Map status to the correct field
-    switch (status) {
-      case "completed":
-        memberGroups[member].completed++;
-        break;
-      case "inprogress":
-        memberGroups[member].ongoing++;
-        break;
-      case "delayed":
-        memberGroups[member].delayed++;
-        break;
-      case "roadblock":
-        memberGroups[member].pending++;
-        break;
-      case "notstarted":
-      default:
-        memberGroups[member].notStarted++;
-        break;
+    const status = task.status;
+    if (status && memberGroups[member].hasOwnProperty(status)) {
+      memberGroups[member][status]++;
     }
   });
 
-  // Convert to array and sort by member name
   const memberWorkload = Object.values(memberGroups).sort((a, b) => a.member.localeCompare(b.member));
-
   pivotData4Q.value = memberWorkload;
   tableLoading.value.table4 = false;
 };
@@ -342,18 +309,28 @@ const pivotColumns3Q = [
   { name: "count", label: "COUNT", field: "count", align: "left" },
 ];
 
-const pivotColumns4Q = [
-  { name: "member", label: "MEMBER", field: "member", align: "left" },
-  { name: "completed", label: "COMPLETED", field: "completed", align: "left" },
-  { name: "ongoing", label: "ON GOING", field: "ongoing", align: "left" },
-  { name: "delayed", label: "DELAYED", field: "delayed", align: "left" },
-  { name: "pending", label: "PENDING", field: "pending", align: "left" },
-  { name: "notStarted", label: "NOT STARTED", field: "notStarted", align: "left" },
-];
+const pivotColumns4Q = computed(() => {
+  const base = [{ name: "member", label: "MEMBER", field: "member", align: "left" }];
+  const statusCols = currentStatusList.value.map((status) => ({
+    name: status.name,
+    label: status.name.toUpperCase(),
+    field: status.name,
+    align: "left",
+  }));
+  return base.concat(statusCols);
+});
 </script>
 
 <template>
   <div class="pivot-section">
+    <q-select
+      v-model="selectedProject"
+      :options="projectData.map((p) => p.Title)"
+      label="Select Project"
+      clearable
+      class="q-mb-md"
+      style="width: 300px"
+    />
     <div class="pivot-header">PIVOT TABLES</div>
 
     <!-- Loading Spinner -->

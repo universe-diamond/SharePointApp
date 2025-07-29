@@ -12,7 +12,6 @@ const baseMembers = ref([]);
 const baseStatus = ref([]);
 const memberList = computed(() => ["ALL", ...baseMembers.value]);
 const selectedMembers = ref(["ALL"]);
-const selectedMember = ref(null);
 const selectedProject = ref(null);
 
 onMounted(() => {
