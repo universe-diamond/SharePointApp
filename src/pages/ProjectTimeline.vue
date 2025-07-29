@@ -5,7 +5,6 @@ import {
   ColumnsDirective,
   ColumnDirective,
   Edit,
-  Toolbar,
   Selection,
   DayMarkers,
 } from "@syncfusion/ej2-vue-gantt";
@@ -28,13 +27,9 @@ defineExpose({
 
 defineOptions({ name: "ProjectTimeline" });
 
-const fileInput = ref(null);
-const selectedFile = ref(null);
-
 const selectedProject = ref(null);
 const ganttData = ref([]);
 const loading = ref(true);
-
 
 function normalizeGanttDates(item) {
   const dateFields = ["start_date", "deadline_date"];
@@ -50,7 +45,7 @@ function normalizeGanttDates(item) {
   return newItem;
 }
 
-provide("gantt", [Edit, Toolbar, Selection, DayMarkers]);
+provide("gantt", [Edit, Selection, DayMarkers]);
 
 watch(
   () => selectedProject.value,
@@ -80,6 +75,7 @@ const viewMode = ref({ timelineViewMode: "Week" });
 
 const editSettings = ref({
   allowEditing: true,
+  allowTaskbarEditing: true,
 });
 
 const labelSettings = ref({
@@ -173,14 +169,12 @@ const assignedEditParams = ref({
   },
 });
 
-const projectOptions = computed(() =>
-  timelineStore.ProjectsInfo.map((project) => project.Title)
-);
+const projectOptions = computed(() => timelineStore.ProjectsInfo.map((project) => project.Title));
 
 function queryTaskbarInfo(args) {
-  const info = timelineStore.ProjectsInfo.find((item) => (item.Title == selectedProject));
+  const info = timelineStore.ProjectsInfo.find((item) => item.Title == selectedProject.value);
 
-  if (!info) return args.taskbarBgColor = "#666";
+  if (!info) return (args.taskbarBgColor = "#666666");
 
   const selectionStatus = info.status.split(",");
 
