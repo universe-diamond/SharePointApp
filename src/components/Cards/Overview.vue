@@ -123,7 +123,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <MemberWorkloadCard :member="baseMembers" :status="baseStatus" />
+            <MemberWorkloadCard :selectedProject="selectedProject" :member="baseMembers" :status="baseStatus" />
           </q-card-section>
         </q-card>
       </div>
