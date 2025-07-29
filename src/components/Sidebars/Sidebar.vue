@@ -1,61 +1,65 @@
 <script setup>
-  import { useRoute } from 'vue-router';
-  import { storeToRefs } from 'pinia';
-  import { useUserStore } from '../../store';
+import { useRoute } from "vue-router";
+import { storeToRefs } from "pinia";
+import { useUserStore } from "../../store";
 
-  const route = useRoute();
-  const userStore = useUserStore();
-  const { currentUser } = storeToRefs(userStore);
+const route = useRoute();
+const userStore = useUserStore();
+const { currentUser } = storeToRefs(userStore);
 
-  const menuList = [
+const menuList = [
   {
-    icon: 'dashboard',
-    label: 'Dashboard',
-    linkTo: '/',
-    separator: false
+    icon: "dashboard",
+    label: "Dashboard",
+    linkTo: "/",
+    separator: false,
   },
   {
-    icon: 'settings',
-    label: 'Setup',
-    linkTo: '/setup',
-    separator: false
+    icon: "settings",
+    label: "Setup",
+    linkTo: "/setup",
+    separator: false,
   },
   {
-    icon: 'timeline',
-    label: 'Project Timeline',
-    linkTo: '/timeline',
-    separator: false
+    icon: "timeline",
+    label: "Project Timeline",
+    linkTo: "/timeline",
+    separator: false,
   },
   {
-    icon: 'checklist', // or 'list_alt'
-    label: 'Task List',
-    linkTo: '/list',
-    separator: false
+    icon: "checklist", // or 'list_alt'
+    label: "Task List",
+    linkTo: "/list",
+    separator: false,
   },
   {
-    icon: 'today', // or 'event_note'
-    label: 'Daily Tasks',
-    linkTo: '/dailytasks',
-    separator: false
+    icon: "calendar_month", // or 'date_range'
+    label: "Weekly Schedule",
+    linkTo: "/schedule",
+    separator: false,
   },
   {
-    icon: 'calendar_month', // or 'date_range'
-    label: 'Weekly Schedule',
-    linkTo: '/schedule',
-    separator: false
+    icon: "today", // or 'event_note'
+    label: "Daily Tasks",
+    linkTo: "/dailytasks",
+    separator: false,
   },
   {
-    icon: 'note', // or 'sticky_note_2'
-    label: 'Notes',
-    linkTo: '/notes',
-    separator: false
-  }
-]
+    icon: "note", // or 'sticky_note_2'
+    label: "Notes",
+    linkTo: "/notes",
+    separator: false,
+  },
+];
 
 // Helper to get initials from name
 function getInitials(name) {
-  if (!name) return '';
-  return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  if (!name) return "";
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase();
 }
 </script>
 
@@ -82,7 +86,7 @@ function getInitials(name) {
             {{ menuItem.label }}
           </q-item-section>
         </q-item>
-        <q-separator :key="'sep' + index"  v-if="menuItem.separator" />
+        <q-separator :key="'sep' + index" v-if="menuItem.separator" />
       </template>
     </q-list>
   </q-scroll-area>
@@ -102,7 +106,7 @@ function getInitials(name) {
   align-items: center;
   background: #fff;
   border-radius: 14px;
-  box-shadow: 0 2px 8px 0 rgba(60, 72, 88, 0.10);
+  box-shadow: 0 2px 8px 0 rgba(60, 72, 88, 0.1);
   padding: 18px 16px 14px 16px;
   margin-bottom: 18px;
   flex-direction: row;
@@ -121,7 +125,7 @@ function getInitials(name) {
   justify-content: center;
   font-size: 1.7rem;
   font-weight: 700;
-  box-shadow: 0 2px 8px 0 rgba(60, 72, 88, 0.10);
+  box-shadow: 0 2px 8px 0 rgba(60, 72, 88, 0.1);
 }
 .user-info {
   display: flex;
@@ -156,10 +160,11 @@ function getInitials(name) {
   transform: translateY(-2px) scale(1.03);
 }
 
-.q-item--active, .q-item[aria-selected="true"] {
+.q-item--active,
+.q-item[aria-selected="true"] {
   background: #b3d4fc !important;
   color: #1a237e !important;
-  box-shadow: 0 2px 12px 0 rgba(60, 72, 88, 0.10);
+  box-shadow: 0 2px 12px 0 rgba(60, 72, 88, 0.1);
 }
 
 .q-item-section[avatar] {
