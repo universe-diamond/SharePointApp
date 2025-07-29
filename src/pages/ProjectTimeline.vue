@@ -8,7 +8,6 @@ import {
   Selection,
   DayMarkers,
 } from "@syncfusion/ej2-vue-gantt";
-import * as XLSX from "xlsx";
 
 import { useTimelineStore } from "../store";
 import { addItem } from "../actions/addItem";
@@ -16,6 +15,7 @@ import { editItem } from "../actions/editItem";
 import { getItem } from "../actions/getItem";
 import { getAllItems } from "../actions/getAllItem";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
+import { date } from "quasar";
 
 const timelineStore = useTimelineStore();
 
@@ -61,15 +61,12 @@ const taskFields = {
   assignedTo: "assigned_to",
   Dependency: "dependency",
   startDate: "start_date",
-  endDate: "endDate",
   deadlineDate: "deadline_date",
   duration: "duration",
   passedDays: "passed_days",
   leftDays: "left_days",
   progress: "timeline_progress",
   status: "status",
-  resourceInfo: "resourceInfo",
-  indicators: "Indicators",
 };
 const viewMode = ref({ timelineViewMode: "Week" });
 
@@ -107,6 +104,9 @@ const allowSelection = ref(true);
 function onActionComplete(args) {
   if (args.requestType === "save") {
     const editData = {
+      project_name: args.data.taskData.project_name,
+      phase: args.data.taskData.phase,
+      task: args.data.taskData.task,
       sub_task: args.data.sub_task,
       assigned_to: args.data.assigned_to,
       dependency: args.data.dependency,
