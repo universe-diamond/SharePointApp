@@ -15,22 +15,22 @@ const props = defineProps({
     type: String,
     default: null,
   },
+  memberList: Array,
   statusList: Array,
 });
 
-const planData = ref([]);
+const tasksData = ref([]);
 const isLoading = ref(true);
 
 const memberWorkloadData = ref([]);
 
 const getSeries = () => {
-  console.log({ statusList: props.statusList });
   if (!memberWorkloadData.value.length) return [];
 
   return props.statusList.map((status) => ({
     dataSource: memberWorkloadData.value.map((member) => ({
       x: member.member,
-      y: getStatusCount(member, status.name),
+      y: member[status.name],
     })),
     xName: "x",
     yName: "y",
@@ -40,43 +40,34 @@ const getSeries = () => {
   }));
 };
 
-const getStatusCount = (member, statusName) => {
-  props.statusList.forEach((status) => {
-    if (statusName == status) {
-      return member[status] || 0;
-    }
-  });
-  return 0;
-};
-
 const processMemberWorkload = () => {
-  const plans = planData.value;
+  const tasks = tasksData.value;
 
   // Filter by selected project if provided
-  const filteredPlans = props.selectedProject
-    ? plans.filter((plan) => plan.project_name === props.selectedProject)
-    : plans;
+  const filteredTasks = props.selectedProject
+    ? tasks.filter((task) => task.project_name === props.selectedProject)
+    : tasks;
+  console.log({
+    filteredTasks,
+    a: props.selectedProject,
+  });
 
   const memberGroups = {};
-  const foundMembers = new Set();
 
-  filteredPlans.forEach((plan) => {
-    // Skip plans without assigned members
-    if (!plan.assigned_to) return;
+  props.memberList.forEach((member) => {
+    memberGroups[member] = { member };
+  });
 
-    const member = plan.assigned_to;
-    foundMembers.add(member);
-    const status = plan.status;
+  filteredTasks.forEach((task) => {
+    // Skip tasks without assigned members
+    if (!task.assigned_to) return;
 
-    if (!memberGroups[member]) {
-      memberGroups[member] = { member };
-      props.statusList.forEach((status) => {
-        memberGroups[member][status] = 0;
-      });
-    }
+    const member = task.assigned_to;
+    const status = task.status || "Open";
 
     // Map status to the correct field
-    memberGroups[member][status]++;
+    if (memberGroups[member][status]) memberGroups[member][status]++;
+    else memberGroups[member][status] = 1;
   });
 
   // Convert to array and sort by member name
@@ -105,7 +96,7 @@ const title = "MEMBERS WORKLOAD";
 watch(
   () => props.selectedProject,
   () => {
-    if (planData.value.length > 0) {
+    if (tasksData.value.length > 0) {
       processMemberWorkload();
     }
   }
@@ -113,13 +104,13 @@ watch(
 
 // Watch for plan data changes
 watch(
-  planData,
+  tasksData,
   () => {
-    if (planData.value.length > 0) {
+    if (tasksData.value.length > 0) {
       processMemberWorkload();
     }
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
 
 onMounted(() => {
@@ -139,9 +130,9 @@ onMounted(() => {
     "project_name",
   ];
 
-  getItem("Plans", fields)
+  getItem("Tasks", fields)
     .then((res) => {
-      planData.value = res;
+      tasksData.value = res;
     })
     .catch((error) => {
       console.error("Error fetching plan data:", error);

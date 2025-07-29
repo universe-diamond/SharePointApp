@@ -2,6 +2,7 @@
 import MemberWorkloadChart from "../Charts/MemberWorkload.vue";
 
 const props = defineProps({
+  selectedProject: String,
   member: Array,
   status: Array,
 });
@@ -9,6 +10,6 @@ const props = defineProps({
 
 <template>
   <div style="min-height: 625px">
-    <MemberWorkloadChart :memberList="member" :statusList="status" />
+    <MemberWorkloadChart :selectedProject="selectedProject" :memberList="member" :statusList="status" />
   </div>
 </template>
