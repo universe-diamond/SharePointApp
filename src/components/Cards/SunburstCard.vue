@@ -5,7 +5,12 @@
       <span v-else>🗗</span>
     </button>
     <button class="addtask-btn" @click="toggleAddTaskCard">+</button>
-    <SunburstChart :baseInfo="props.baseInfo" :selectedProject="selectedProject" component-id="chartId" :class="{ 'fullscreen-chart': isFullscreen }" />
+    <SunburstChart
+      :baseInfo="props.baseInfo"
+      :selectedProject="selectedProject"
+      component-id="chartId"
+      :class="{ 'fullscreen-chart': isFullscreen }"
+    />
 
     <div v-if="showAddTaskCard" class="info-card-overlay" @click="closeInfoCard">
       <div class="info-card" @click.stop>
@@ -19,48 +24,48 @@
               v-model="newTask.phase"
               :options="phaseOptions"
               label="Phase"
-              dense outlined
+              dense
+              outlined
               emit-value
               map-options
               :error="isFieldInvalid('phase', newTask) && newConfirmState"
-              :error-message="(isFieldInvalid('phase', newTask) && newConfirmState) ? 'Required' : ''"
-              style="width: 100%; margin-bottom: 12px;"
+              :error-message="isFieldInvalid('phase', newTask) && newConfirmState ? 'Required' : ''"
+              style="width: 100%; margin-bottom: 12px"
             />
-            <q-input 
+            <q-input
               v-model="newTask.task"
               label="Task"
-              dense outlined 
+              dense
+              outlined
               :error="isFieldInvalid('task', newTask) && newConfirmState"
-              :error-message="(isFieldInvalid('task', newTask) && newConfirmState) ? 'Required' : ''"
-              style="width: 100%; margin-bottom: 12px;"
+              :error-message="isFieldInvalid('task', newTask) && newConfirmState ? 'Required' : ''"
+              style="width: 100%; margin-bottom: 12px"
             />
-            <q-input 
+            <q-input
               v-model="newTask.sub_task"
               label="Sub Task"
-              dense outlined 
+              dense
+              outlined
               :error="isFieldInvalid('sub_task', newTask) && newConfirmState"
-              :error-message="(isFieldInvalid('sub_task', newTask) && newConfirmState) ? 'Required' : ''"
-              style="width: 100%; margin-bottom: 12px;"
+              :error-message="isFieldInvalid('sub_task', newTask) && newConfirmState ? 'Required' : ''"
+              style="width: 100%; margin-bottom: 12px"
             />
-            <q-input 
+            <q-input
               v-model="newTask.description"
               label="Description"
-              dense outlined 
+              dense
+              outlined
               type="textarea"
               rows="3"
-              style="width: 100%; margin-bottom: 12px;"
+              style="width: 100%; margin-bottom: 12px"
             />
-            <q-input 
-              v-model="newTask.groups"
-              label="Groups"
-              dense outlined 
-              style="width: 100%; margin-bottom: 12px;"
-            />
-            <q-input 
+            <q-input v-model="newTask.groups" label="Groups" dense outlined style="width: 100%; margin-bottom: 12px" />
+            <q-input
               v-model="newTask.architecture"
               label="Architecture"
-              dense outlined 
-              style="width: 100%; margin-bottom: 12px;"
+              dense
+              outlined
+              style="width: 100%; margin-bottom: 12px"
             />
           </div>
         </div>
@@ -85,8 +90,8 @@ import { getItem } from "../../actions/getItem";
 
 const props = defineProps({
   baseInfo: Array,
-  selectedProject: String
-})
+  selectedProject: String,
+});
 
 const taskStore = useTaskStore();
 
@@ -114,13 +119,11 @@ const selectedNodeInfo = computed(() => {
 });
 
 const phaseOptions = computed(() => {
-  const project = taskStore.projectList.find(
-    p => p.Title === newTask.value.project_name
-  );
+  const project = taskStore.projectList.find((p) => p.Title === newTask.value.project_name);
   if (!project || !project.phases) return [];
-  return project.phases.split(",").map(phase => ({
+  return project.phases.split(",").map((phase) => ({
     label: phase.trim(),
-    value: phase.trim()
+    value: phase.trim(),
   }));
 });
 
@@ -129,7 +132,7 @@ function isFieldInvalid(field, record) {
 }
 
 function isRowValid(record) {
-  return ["phase", "task", "sub_task"].every(f => record[f] && record[f].trim() !== "");
+  return ["phase", "task", "sub_task"].every((f) => record[f] && record[f].trim() !== "");
 }
 
 function toggleFullscreen() {
@@ -171,12 +174,12 @@ async function saveNewTask() {
     const res = await addItem("Tasks", newTask.value);
     taskStore.addTask({
       ...newTask.value,
-      ID: res.ID
+      ID: res.ID,
     });
     showAddTaskCard.value = false;
     newConfirmState.value = false;
   } finally {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     miniLoading.value = false;
   }
 }
@@ -189,11 +192,10 @@ function cancelNewTask() {
 // Load projects when component mounts
 onMounted(() => {
   const fields = ["ID", "Title", "phases"];
-  getItem("Projects", fields).then(res => {
+  getItem("Projects", fields).then((res) => {
     taskStore.setProjects(res);
   });
 });
-
 </script>
 
 <style scoped>

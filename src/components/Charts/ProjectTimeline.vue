@@ -7,12 +7,13 @@ import {
   ColumnSeries,
   Category,
   Tooltip,
-  Legend
+  Legend,
 } from "@syncfusion/ej2-vue-charts";
 import { getItem } from "../../actions/getItem";
+import { getAllItems } from "../../actions/getAllItem";
 
 const props = defineProps({
-  selectedProject: String
+  selectedProject: String,
 });
 
 const seriesData = ref([]);
@@ -35,51 +36,68 @@ const title = "PROJECT PHASE PROGRESS %";
 
 // Load data on mount
 onMounted(() => {
-  const fields1 = ["ID", "Title", "assigned_to", "dependency", "start_date", "end_date", "deadline_date", "duration", "passed_days", "left_days", "timeline_progress", "status"];
+  const fields1 = [
+    "ID",
+    "Title",
+    "assigned_to",
+    "dependency",
+    "start_date",
+    "end_date",
+    "deadline_date",
+    "duration",
+    "passed_days",
+    "left_days",
+    "timeline_progress",
+    "status",
+  ];
   const fields2 = ["ID", "project_name", "phase", "task", "sub_task"];
 
-  getItem("Plans", fields1).then(res => {
+  getItem("Plans", fields1).then((res) => {
     planData.value = res;
   });
-  getItem("Tasks", fields2).then(res => {
+  getAllItems("Tasks", fields2).then((res) => {
     taskData.value = res;
   });
-  
+
   // Fallback timeout to hide loading if data doesn't load within 8 seconds
   setTimeout(() => {
     if (isLoading.value) {
       isLoading.value = false;
-      console.warn('Chart loading timeout reached - hiding spinner');
+      console.warn("Chart loading timeout reached - hiding spinner");
     }
   }, 8000);
 });
 
 // Watch for selected project changes and data availability
-watch([() => props.selectedProject, planData, taskData], ([project, plans, tasks]) => {
-  if (project && plans.length > 0 && tasks.length > 0) {
-    processPhaseProgress();
-    isLoading.value = false;
-  }
-}, { deep: true });
+watch(
+  [() => props.selectedProject, planData, taskData],
+  ([project, plans, tasks]) => {
+    if (project && plans.length > 0 && tasks.length > 0) {
+      processPhaseProgress();
+      isLoading.value = false;
+    }
+  },
+  { deep: true }
+);
 
 // Function to process phase progress data (same as first table in PivotTable)
 const processPhaseProgress = () => {
   const plans = planData.value;
   const tasks = taskData.value;
-  
+
   // Create a mapping from task title to phase
   const taskToPhaseMap = {};
-  tasks.forEach(task => {
+  tasks.forEach((task) => {
     const taskKey = `${task.sub_task}`;
     taskToPhaseMap[taskKey] = task.phase;
   });
 
   // Group plans by phase
   const phaseGroups = {};
-  
-  plans.forEach(plan => {
+
+  plans.forEach((plan) => {
     let phase;
-    
+
     if (taskToPhaseMap[plan.Title]) {
       phase = taskToPhaseMap[plan.Title];
 
@@ -88,32 +106,33 @@ const processPhaseProgress = () => {
       }
       phaseGroups[phase].push(plan);
     }
-
   });
 
   // Calculate progress for each phase
   const phaseProgress = [];
-  
+
   Object.entries(phaseGroups).forEach(([phase, plans]) => {
     if (plans.length > 0) {
-      const validPlans = plans.filter(plan => plan.timeline_progress !== null && plan.timeline_progress !== undefined);
-      
+      const validPlans = plans.filter(
+        (plan) => plan.timeline_progress !== null && plan.timeline_progress !== undefined
+      );
+
       if (validPlans.length > 0) {
         const totalProgress = validPlans.reduce((sum, plan) => {
           return sum + (parseFloat(plan.timeline_progress) || 0);
         }, 0);
-        
+
         const averageProgress = totalProgress / validPlans.length;
-        
+
         phaseProgress.push({
           phase: phase,
-          progress: Math.round(averageProgress)
+          progress: Math.round(averageProgress),
         });
       } else {
         // If no valid progress data, show 0
         phaseProgress.push({
           phase: phase,
-          progress: 0
+          progress: 0,
         });
       }
     }
@@ -121,13 +140,13 @@ const processPhaseProgress = () => {
 
   // Sort by phase name for consistent display
   phaseProgress.sort((a, b) => a.phase.localeCompare(b.phase));
-  
+
   // Transform data for chart format
-  const chartData = phaseProgress.map(item => ({
+  const chartData = phaseProgress.map((item) => ({
     phase: item.phase,
-    progress: item.progress
+    progress: item.progress,
   }));
-  
+
   seriesData.value = chartData;
 };
 
@@ -140,7 +159,7 @@ provide("chart", [ColumnSeries, Category, Tooltip, Legend]);
       <q-spinner-dots size="40px" color="primary" />
       <div class="chart-loading-text">Loading phase progress...</div>
     </div>
-    
+
     <EjsChart
       v-else
       ref="chart"
@@ -151,13 +170,7 @@ provide("chart", [ColumnSeries, Category, Tooltip, Legend]);
       height="400px"
     >
       <SeriesCollection>
-        <Series
-          :dataSource="seriesData"
-          type="Column"
-          xName="phase"
-          yName="progress"
-          name="Progress %"
-        />
+        <Series :dataSource="seriesData" type="Column" xName="phase" yName="progress" name="Progress %" />
       </SeriesCollection>
     </EjsChart>
   </div>
