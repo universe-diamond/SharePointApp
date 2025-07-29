@@ -273,7 +273,7 @@ export const useTimelineStore = defineStore("timeline", {
   state: () => ({
     timelineList: [],
     ProjectsInfo: [],
-    currentProject: {},
+    currentProject: null,
   }),
   actions: {
     setList(payload) {
@@ -282,14 +282,11 @@ export const useTimelineStore = defineStore("timeline", {
     setProjects(payload) {
       this.ProjectsInfo = payload;
     },
-    addLine(payload) {
-      this.timelineList.push(payload);
-    },
     editLine(payload) {
       this.timelineList = this.timelineList.map((item) => (item.ID == payload.ID ? payload : item));
     },
-    deleteLine(payload) {
-      this.timelineList = this.timelineList.filter((item) => payload.indexOf(item.ID) === -1);
+    setCurrentProject(payload) {
+      this.currentProject = payload;
     },
   },
 });

@@ -5,11 +5,9 @@ import {
   ColumnsDirective,
   ColumnDirective,
   Edit,
-  Toolbar,
   Selection,
   DayMarkers,
 } from "@syncfusion/ej2-vue-gantt";
-import * as XLSX from "xlsx";
 
 import { useTimelineStore } from "../store";
 import { addItem } from "../actions/addItem";
@@ -17,6 +15,7 @@ import { editItem } from "../actions/editItem";
 import { getItem } from "../actions/getItem";
 import { getAllItems } from "../actions/getAllItem";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
+import { date } from "quasar";
 
 const timelineStore = useTimelineStore();
 
@@ -28,13 +27,9 @@ defineExpose({
 
 defineOptions({ name: "ProjectTimeline" });
 
-const fileInput = ref(null);
-const selectedFile = ref(null);
-
 const selectedProject = ref(null);
 const ganttData = ref([]);
 const loading = ref(true);
-
 
 function normalizeGanttDates(item) {
   const dateFields = ["start_date", "deadline_date"];
@@ -50,7 +45,7 @@ function normalizeGanttDates(item) {
   return newItem;
 }
 
-provide("gantt", [Edit, Toolbar, Selection, DayMarkers]);
+provide("gantt", [Edit, Selection, DayMarkers]);
 
 watch(
   () => selectedProject.value,
@@ -66,20 +61,18 @@ const taskFields = {
   assignedTo: "assigned_to",
   Dependency: "dependency",
   startDate: "start_date",
-  endDate: "endDate",
   deadlineDate: "deadline_date",
   duration: "duration",
   passedDays: "passed_days",
   leftDays: "left_days",
   progress: "timeline_progress",
   status: "status",
-  resourceInfo: "resourceInfo",
-  indicators: "Indicators",
 };
 const viewMode = ref({ timelineViewMode: "Week" });
 
 const editSettings = ref({
   allowEditing: true,
+  allowTaskbarEditing: true,
 });
 
 const labelSettings = ref({
@@ -111,6 +104,9 @@ const allowSelection = ref(true);
 function onActionComplete(args) {
   if (args.requestType === "save") {
     const editData = {
+      project_name: args.data.taskData.project_name,
+      phase: args.data.taskData.phase,
+      task: args.data.taskData.task,
       sub_task: args.data.sub_task,
       assigned_to: args.data.assigned_to,
       dependency: args.data.dependency,
@@ -173,14 +169,12 @@ const assignedEditParams = ref({
   },
 });
 
-const projectOptions = computed(() =>
-  timelineStore.ProjectsInfo.map((project) => project.Title)
-);
+const projectOptions = computed(() => timelineStore.ProjectsInfo.map((project) => project.Title));
 
 function queryTaskbarInfo(args) {
-  const info = timelineStore.ProjectsInfo.find((item) => (item.Title == selectedProject));
+  const info = timelineStore.ProjectsInfo.find((item) => item.Title == selectedProject.value);
 
-  if (!info) return args.taskbarBgColor = "#666";
+  if (!info) return (args.taskbarBgColor = "#666666");
 
   const selectionStatus = info.status.split(",");
 
