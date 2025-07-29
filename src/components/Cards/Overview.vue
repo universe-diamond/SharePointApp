@@ -1,5 +1,4 @@
 <script setup>
-
 import { onMounted, ref, watch, computed } from "vue";
 
 import SunburstCard from "./SunburstCard.vue";
@@ -10,27 +9,36 @@ import { getItem } from "../../actions/getItem";
 
 const projects = ref([]);
 const baseMembers = ref([]);
+const baseStatus = ref([]);
 const memberList = computed(() => ["ALL", ...baseMembers.value]);
 const selectedMembers = ref(["ALL"]);
-const selectedMember = ref(null);
 const selectedProject = ref(null);
 
 onMounted(() => {
-  const fields = ["ID", "Title", "phases", "members"];
-  getItem("Projects", fields).then(res => {
+  const fields = ["ID", "Title", "phases", "members", "status"];
+  getItem("Projects", fields).then((res) => {
     projects.value = res;
-    selectedProject.value = res[0].Title
-  })
-})
+    selectedProject.value = res[0].Title;
+  });
+});
 
 watch(selectedProject, (newVal) => {
   if (newVal) {
-    const project = projects.value.find(item => item.Title === newVal);
+    const project = projects.value.find((item) => item.Title === newVal);
     if (project) {
-      baseMembers.value = project.members ? project.members.split(',') : [];
+      baseMembers.value = project.members ? project.members.split(",") : [];
+      baseStatus.value = project.status
+        ? project.status.split(",").map((it) => {
+            const [name, color] = it.split("#");
+            return {
+              name,
+              color: "#" + color,
+            };
+          })
+        : [];
     }
   }
-})
+});
 
 function toggleMember(member) {
   if (member === "ALL") {
@@ -45,8 +53,7 @@ function toggleMember(member) {
   if (idx === -1) {
     selectedMembers.value.push(member);
     if (baseMembers.every((m) => selectedMembers.value.includes(m))) {
-      if (!selectedMembers.value.includes("ALL"))
-        selectedMembers.value.unshift("ALL");
+      if (!selectedMembers.value.includes("ALL")) selectedMembers.value.unshift("ALL");
     }
   } else {
     selectedMembers.value.splice(idx, 1);
@@ -67,20 +74,7 @@ function toggleMember(member) {
             <span style="font-size: 14px; font-weight: 500; margin-right: 8px">Project:</span>
             <q-select
               v-model="selectedProject"
-              :options="projects.map(item => item.Title)"
-              dense
-              outlined
-              style="width: 70%"
-              emit-value
-              map-options
-              :clearable="true"
-            />
-          </div>
-          <div class="col-6">
-            <span style="font-size: 14px; font-weight: 500; margin-right: 8px">Member:</span>
-            <q-select
-              v-model="selectedMember"
-              :options="baseMembers"
+              :options="projects.map((item) => item.Title)"
               dense
               outlined
               style="width: 70%"
@@ -96,7 +90,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject"/>
+            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject" :baseStatus="baseStatus" />
           </q-card-section>
         </q-card>
       </div>
@@ -128,7 +122,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <MemberWorkloadCard :member="baseMembers"/>
+            <MemberWorkloadCard :selectedProject="selectedProject" :member="baseMembers" :status="baseStatus" />
           </q-card-section>
         </q-card>
       </div>
@@ -167,95 +161,95 @@ function toggleMember(member) {
         </q-card>
       </div> -->
       <div class="col-6">
-          <q-card flat bordered>
-            <q-card-section>
-              <ProjectTimelineCard :selectedProject="selectedProject" />
-            </q-card-section>
-          </q-card>
+        <q-card flat bordered>
+          <q-card-section>
+            <ProjectTimelineCard :selectedProject="selectedProject" />
+          </q-card-section>
+        </q-card>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-  .overview-section {
-    margin-bottom: 32px;
-  }
-  .overview-header {
-    font-size: 18px;
-    font-weight: bold;
-    margin-bottom: 16px;
-    letter-spacing: 1px;
-  }
+.overview-section {
+  margin-bottom: 32px;
+}
+.overview-header {
+  font-size: 18px;
+  font-weight: bold;
+  margin-bottom: 16px;
+  letter-spacing: 1px;
+}
 
-  .fantastic-member-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    font-size: 13px;
-  }
-  .fantastic-member-item {
-    display: flex;
-    align-items: center;
-    padding: 6px 0;
-    border-bottom: 1px solid #f0f0f0;
-    cursor: pointer;
-    border-radius: 4px;
-    transition: background 0.15s;
-  }
-  .fantastic-checkbox-label {
-    display: flex;
-    align-items: center;
-    width: 100%;
-    cursor: pointer;
-  }
-  .fantastic-checkbox {
-    display: none;
-  }
-  .fantastic-custom-checkbox {
-    width: 16px;
-    height: 16px;
-    border-radius: 4px;
-    border: 2px solid #bfc7d1;
-    background: #fff;
-    margin-right: 10px;
-    position: relative;
-    transition: border 0.15s;
-  }
-  .fantastic-checkbox:checked + .fantastic-custom-checkbox {
-    background: #409eff;
-    border-color: #409eff;
-  }
-  .fantastic-checkbox:checked + .fantastic-custom-checkbox::after {
-    content: "";
-    position: absolute;
-    left: 4px;
-    top: 1.5px;
-    width: 5px;
-    height: 9px;
-    border: solid #fff;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
-  }
-  .fantastic-member-name {
-    flex: 1;
-    font-weight: 400;
-    color: #222;
-    letter-spacing: 0.2px;
-  }
-  .fantastic-select-all {
-    background: #f5f7fa;
-    border: 1px solid #bfc7d1;
-    color: #409eff;
-    font-weight: 500;
-    border-radius: 4px;
-    padding: 4px 12px;
-    margin-bottom: 8px;
-    cursor: pointer;
-    transition: background 0.15s, border 0.15s;
-  }
-  .fantastic-select-all:hover {
-    background: #e6f0fa;
-    border-color: #409eff;
-  }
+.fantastic-member-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+.fantastic-member-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+.fantastic-checkbox-label {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  cursor: pointer;
+}
+.fantastic-checkbox {
+  display: none;
+}
+.fantastic-custom-checkbox {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  border: 2px solid #bfc7d1;
+  background: #fff;
+  margin-right: 10px;
+  position: relative;
+  transition: border 0.15s;
+}
+.fantastic-checkbox:checked + .fantastic-custom-checkbox {
+  background: #409eff;
+  border-color: #409eff;
+}
+.fantastic-checkbox:checked + .fantastic-custom-checkbox::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1.5px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.fantastic-member-name {
+  flex: 1;
+  font-weight: 400;
+  color: #222;
+  letter-spacing: 0.2px;
+}
+.fantastic-select-all {
+  background: #f5f7fa;
+  border: 1px solid #bfc7d1;
+  color: #409eff;
+  font-weight: 500;
+  border-radius: 4px;
+  padding: 4px 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border 0.15s;
+}
+.fantastic-select-all:hover {
+  background: #e6f0fa;
+  border-color: #409eff;
+}
 </style>

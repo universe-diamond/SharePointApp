@@ -1,94 +1,18 @@
-<template>
-  <div :class="['sunburst-card', { fullscreen: isFullscreen }]">
-    <button class="fullscreen-btn" @click="toggleFullscreen">
-      <span v-if="!isFullscreen">⛶</span>
-      <span v-else>🗗</span>
-    </button>
-    <button class="addtask-btn" @click="toggleAddTaskCard">+</button>
-    <SunburstChart :baseInfo="props.baseInfo" :selectedProject="selectedProject" component-id="chartId" :class="{ 'fullscreen-chart': isFullscreen }" />
-
-    <div v-if="showAddTaskCard" class="info-card-overlay" @click="closeInfoCard">
-      <div class="info-card" @click.stop>
-        <div class="info-card-header">
-          <h3>Add New Task</h3>
-          <button @click="closeInfoCard" class="close-btn">×</button>
-        </div>
-        <div class="info-card-content">
-          <div class="form-row">
-            <q-select
-              v-model="newTask.phase"
-              :options="phaseOptions"
-              label="Phase"
-              dense outlined
-              emit-value
-              map-options
-              :error="isFieldInvalid('phase', newTask) && newConfirmState"
-              :error-message="(isFieldInvalid('phase', newTask) && newConfirmState) ? 'Required' : ''"
-              style="width: 100%; margin-bottom: 12px;"
-            />
-            <q-input 
-              v-model="newTask.task"
-              label="Task"
-              dense outlined 
-              :error="isFieldInvalid('task', newTask) && newConfirmState"
-              :error-message="(isFieldInvalid('task', newTask) && newConfirmState) ? 'Required' : ''"
-              style="width: 100%; margin-bottom: 12px;"
-            />
-            <q-input 
-              v-model="newTask.sub_task"
-              label="Sub Task"
-              dense outlined 
-              :error="isFieldInvalid('sub_task', newTask) && newConfirmState"
-              :error-message="(isFieldInvalid('sub_task', newTask) && newConfirmState) ? 'Required' : ''"
-              style="width: 100%; margin-bottom: 12px;"
-            />
-            <q-input 
-              v-model="newTask.description"
-              label="Description"
-              dense outlined 
-              type="textarea"
-              rows="3"
-              style="width: 100%; margin-bottom: 12px;"
-            />
-            <q-input 
-              v-model="newTask.groups"
-              label="Groups"
-              dense outlined 
-              style="width: 100%; margin-bottom: 12px;"
-            />
-            <q-input 
-              v-model="newTask.architecture"
-              label="Architecture"
-              dense outlined 
-              style="width: 100%; margin-bottom: 12px;"
-            />
-          </div>
-        </div>
-        <div class="info-card-actions">
-          <button class="close-info-btn" @click="saveNewTask" :disabled="miniLoading">
-            <span v-if="miniLoading">Saving...</span>
-            <span v-else>Save</span>
-          </button>
-          <button class="close-info-btn" @click="cancelNewTask">Cancel</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup>
 import { ref, computed, onMounted } from "vue";
 import SunburstChart from "../Charts/Sunburst.vue";
-import { useTaskStore } from "../../store";
+import { useTaskStore, useSunburstStore } from "../../store";
 import { addItem } from "../../actions/addItem";
 import { getItem } from "../../actions/getItem";
 
 const props = defineProps({
   baseInfo: Array,
-  selectedProject: String
-})
+  baseStatus: Array,
+  selectedProject: String,
+});
 
 const taskStore = useTaskStore();
+const sunburstStore = useSunburstStore();
 
 const isFullscreen = ref(false);
 const showAddTaskCard = ref(false);
@@ -103,9 +27,10 @@ const newTask = ref({
   description: "",
   groups: "",
   architecture: "",
+  timeline_progress: 0,
+  status: "",
 });
 
-// Set the project name from the selected project prop
 const selectedNodeInfo = computed(() => {
   if (props.selectedProject) {
     newTask.value.project_name = props.selectedProject;
@@ -114,13 +39,26 @@ const selectedNodeInfo = computed(() => {
 });
 
 const phaseOptions = computed(() => {
-  const project = taskStore.projectList.find(
-    p => p.Title === newTask.value.project_name
-  );
+  const project = taskStore.projectList.find((p) => p.Title === newTask.value.project_name);
   if (!project || !project.phases) return [];
-  return project.phases.split(",").map(phase => ({
+  return project.phases.split(",").map((phase) => ({
     label: phase.trim(),
-    value: phase.trim()
+    value: phase.trim(),
+  }));
+});
+
+const taskOptions = computed(() => {
+  const uniqueTasks = [
+    ...new Set(
+      sunburstStore.taskData
+        .filter((task) => task.project_name == newTask.value.project_name && task.phase == newTask.value.phase)
+        .map((task) => task.task)
+        .filter((task) => task && task.trim())
+    ),
+  ];
+  return uniqueTasks.map((task) => ({
+    label: task,
+    value: task,
   }));
 });
 
@@ -129,7 +67,7 @@ function isFieldInvalid(field, record) {
 }
 
 function isRowValid(record) {
-  return ["phase", "task", "sub_task"].every(f => record[f] && record[f].trim() !== "");
+  return ["phase", "task", "sub_task"].every((f) => record[f] && record[f].trim() !== "");
 }
 
 function toggleFullscreen() {
@@ -144,15 +82,16 @@ function toggleFullscreen() {
 function toggleAddTaskCard() {
   showAddTaskCard.value = !showAddTaskCard.value;
   if (showAddTaskCard.value) {
-    // Reset form when opening
     newTask.value = {
-      project_name: props.selectedProject || "",
+      project_name: props.selectedProject,
       phase: "",
       task: "",
       sub_task: "",
       description: "",
       groups: "",
       architecture: "",
+      timeline_progress: 0,
+      status: "Open",
     };
     newConfirmState.value = false;
   }
@@ -167,16 +106,17 @@ async function saveNewTask() {
   if (!isRowValid(newTask.value)) return;
 
   miniLoading.value = true;
+
   try {
     const res = await addItem("Tasks", newTask.value);
-    taskStore.addTask({
+    sunburstStore.addTask({
       ...newTask.value,
-      ID: res.ID
+      ID: res.ID,
     });
     showAddTaskCard.value = false;
     newConfirmState.value = false;
   } finally {
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     miniLoading.value = false;
   }
 }
@@ -186,15 +126,99 @@ function cancelNewTask() {
   newConfirmState.value = false;
 }
 
-// Load projects when component mounts
 onMounted(() => {
   const fields = ["ID", "Title", "phases"];
-  getItem("Projects", fields).then(res => {
+  getItem("Projects", fields).then((res) => {
     taskStore.setProjects(res);
   });
 });
-
 </script>
+
+<template>
+  <div :class="['sunburst-card', { fullscreen: isFullscreen }]">
+    <button class="fullscreen-btn" @click="toggleFullscreen">
+      <span v-if="!isFullscreen">⛶</span>
+      <span v-else>🗗</span>
+    </button>
+    <button class="addtask-btn" @click="toggleAddTaskCard">+</button>
+    <SunburstChart
+      :baseInfo="props.baseInfo"
+      :selectedProject="selectedProject"
+      component-id="chartId"
+      :class="{ 'fullscreen-chart': isFullscreen }"
+    />
+
+    <div v-if="showAddTaskCard" class="info-card-overlay" @click="closeInfoCard">
+      <div class="info-card" @click.stop>
+        <div class="info-card-header">
+          <h3>Add New Task</h3>
+          <button @click="closeInfoCard" class="close-btn">×</button>
+        </div>
+        <div class="info-card-content">
+          <div class="form-row">
+            <q-select
+              v-model="newTask.phase"
+              :options="phaseOptions"
+              label="Phase"
+              dense
+              outlined
+              emit-value
+              map-options
+              :error="isFieldInvalid('phase', newTask) && newConfirmState"
+              :error-message="isFieldInvalid('phase', newTask) && newConfirmState ? 'Required' : ''"
+              style="width: 100%; margin-bottom: 12px"
+            />
+            <q-select
+              v-model="newTask.task"
+              :options="taskOptions"
+              label="Task"
+              dense
+              outlined
+              emit-value
+              map-options
+              :error="isFieldInvalid('task', newTask) && newConfirmState"
+              :error-message="isFieldInvalid('task', newTask) && newConfirmState ? 'Required' : ''"
+              style="width: 100%; margin-bottom: 12px"
+            />
+            <q-input
+              v-model="newTask.sub_task"
+              label="Sub Task"
+              dense
+              outlined
+              :error="isFieldInvalid('sub_task', newTask) && newConfirmState"
+              :error-message="isFieldInvalid('sub_task', newTask) && newConfirmState ? 'Required' : ''"
+              style="width: 100%; margin-bottom: 12px"
+            />
+            <q-input
+              v-model="newTask.description"
+              label="Description"
+              dense
+              outlined
+              type="textarea"
+              rows="3"
+              style="width: 100%; margin-bottom: 12px"
+            />
+            <q-input v-model="newTask.groups" label="Groups" dense outlined style="width: 100%; margin-bottom: 12px" />
+            <q-input
+              v-model="newTask.architecture"
+              label="Architecture"
+              dense
+              outlined
+              style="width: 100%; margin-bottom: 12px"
+            />
+          </div>
+        </div>
+        <div class="info-card-actions">
+          <button class="close-info-btn" @click="saveNewTask" :disabled="miniLoading">
+            <span v-if="miniLoading">Saving...</span>
+            <span v-else>Save</span>
+          </button>
+          <button class="close-info-btn" @click="cancelNewTask">Cancel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
 
 <style scoped>
 .sunburst-card {

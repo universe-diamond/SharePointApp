@@ -1,157 +1,148 @@
 <script setup>
-  import { ref, computed, onMounted, watch } from "vue";
-  import jsPDF from "jspdf";
+import { ref, computed, onMounted, watch } from "vue";
+import jsPDF from "jspdf";
 
-  import { useNoteStore } from "../store";
-  import { getItem } from "../actions/getItem";
-  import { addItem } from "../actions/addItem";
-  import { editItem } from "../actions/editItem";
-  import LoadingSpinner from "../components/LoadingSpinner.vue";
+import { useNoteStore } from "../store";
+import { getItem } from "../actions/getItem";
+import { addItem } from "../actions/addItem";
+import { editItem } from "../actions/editItem";
+import LoadingSpinner from "../components/LoadingSpinner.vue";
 
-  const noteStore = useNoteStore();
+const noteStore = useNoteStore();
 
-  const noteTypes = ref([]);
-  const notes = ref([]);
+const noteTypes = ref([]);
+const notes = ref([]);
 
-  const newNote = ref("");
-  const typeSearch = ref("");
+const newNote = ref("");
+const typeSearch = ref("");
 
-  const loading = computed(() => noteStore.loading);
+const loading = computed(() => noteStore.loading);
 
-  onMounted(async () => {
-    noteStore.setLoading(true);
-    const fields = ["ID", "Title", "note_types"];
-    await getItem("Projects", fields).then(res => {
-      noteStore.setProjectList(res);
-      noteStore.setTypeList(res[0].note_types.split(','))
-    });
-    noteStore.setLoading(false);
-  })
-
-  watch(
-    () => noteStore.typeList,
-    (source) => {
-      noteTypes.value = source;
-    },
-    {immediate: true, deep: true}
-  )
-
-  watch(
-    () => noteStore.currentType,
-    (source) => {
-      const fields = ["ID", "type", "Title", "created_date", "updated_date", "content"];
-      getItem("Notes", fields).then(res => {
-        noteStore.setNoteList(res)
-      })
-    },
-    {immediate: true, deep: true}
-  )
-
-  watch(
-    () => noteStore.noteList,
-    (source) => {
-      notes.value = source
-    },
-    {immediate: true, deep: true}
-  )
-
-  function selectType(type) {
-    noteStore.currentType = type;
-    noteStore.setCurrentType(type);
-  }
-
-  const filteredNoteTypes = computed(() => {
-    if (!typeSearch.value.trim()) return noteTypes.value;
-    return noteTypes.value.filter(type => type.toLowerCase().includes(typeSearch.value.trim().toLowerCase()));
+onMounted(async () => {
+  noteStore.setLoading(true);
+  const fields = ["ID", "Title", "note_types"];
+  await getItem("Projects", fields).then((res) => {
+    noteStore.setProjectList(res);
+    noteStore.setTypeList(res[0].note_types.split(","));
   });
+  noteStore.setLoading(false);
+});
 
-  function addNote() {
-    if (!newNote.value.trim()) return;
+watch(
+  () => noteStore.typeList,
+  (source) => {
+    noteTypes.value = source;
+  },
+  { immediate: true, deep: true }
+);
+
+watch(
+  () => noteStore.currentType,
+  (source) => {
+    const fields = ["ID", "type", "Title", "created_date", "updated_date", "content"];
+    getItem("Notes", fields).then((res) => {
+      noteStore.setNoteList(res);
+    });
+  },
+  { immediate: true, deep: true }
+);
+
+watch(
+  () => noteStore.noteList,
+  (source) => {
+    notes.value = source;
+  },
+  { immediate: true, deep: true }
+);
+
+function selectType(type) {
+  noteStore.setCurrentType(type);
+}
+
+const filteredNoteTypes = computed(() => {
+  if (!typeSearch.value.trim()) return noteTypes.value;
+  return noteTypes.value.filter((type) => type.toLowerCase().includes(typeSearch.value.trim().toLowerCase()));
+});
+
+function addNote() {
+  if (!newNote.value.trim()) return;
+  noteStore.setLoading(true);
+  const newNoteInfo = {
+    type: noteStore.currentType,
+    created_date: new Date(),
+    updated_date: new Date(),
+    content: newNote.value.trim(),
+  };
+  addItem("Notes", newNoteInfo).then((res) => {
+    noteStore.addNote({
+      ...newNoteInfo,
+      ID: res.ID,
+    });
+    newNote.value = "";
+    noteStore.setLoading(false);
+  });
+}
+
+// function deleteNote(idx) {
+//   notes.value.splice(idx, 1);
+// }
+
+function editNote(idx) {
+  notes.value[idx].editing = true;
+  notes.value[idx].editContent = notes.value[idx].content;
+}
+
+function saveEdit(idx) {
+  const note = notes.value[idx];
+  if (note.editContent.trim()) {
     noteStore.setLoading(true);
-    const newNoteInfo = {
-      type: noteStore.currentType,
-      created_date: new Date(),
+    const editInfo = {
+      content: note.editContent.trim(),
       updated_date: new Date(),
-      content: newNote.value.trim()
-    }
-    addItem("Notes", newNoteInfo).then(res => {
-      noteStore.addNote({
-        ...newNoteInfo,
-        ID: res.ID,
-      })
-      newNote.value = "";
+    };
+    editItem("Notes", note.ID, editInfo).then((res) => {
+      noteStore.editNote({
+        ID: note.ID,
+        content: editInfo.content,
+        updated_date: editInfo.updated_date,
+      });
       noteStore.setLoading(false);
-    })
+    });
+    note.editing = false;
   }
+}
 
-  // function deleteNote(idx) {
-  //   notes.value.splice(idx, 1);
-  // }
+function cancelEdit(idx) {
+  notes.value[idx].editing = false;
+}
 
-  function editNote(idx) {
-    notes.value[idx].editing = true;
-    notes.value[idx].editContent = notes.value[idx].content;
-  }
+function formatDate(date) {
+  const d = new Date(date);
+  return d.toLocaleString();
+}
 
-  function saveEdit(idx) {
-    const note = notes.value[idx];
-    if (note.editContent.trim()) {
-      noteStore.setLoading(true);
-      const editInfo = {
-        content: note.editContent.trim(),
-        updated_date: new Date()
-      }
-      editItem("Notes", note.ID, editInfo).then(res => {
-        noteStore.editNote({
-          ID: note.ID,
-          content: editInfo.content,
-          updated_date: editInfo.updated_date
-        })
-        noteStore.setLoading(false);
-      })
-      note.editing = false;
-    }
-  }
+function downloadNote(note) {
+  const doc = new jsPDF();
+  doc.setFontSize(14);
+  doc.text(`Type: ${note.type}`, 10, 10);
+  doc.text(`Created: ${formatDate(note.created_date)}`, 10, 20);
+  doc.text(`Updated: ${formatDate(note.updated_date)}`, 10, 30);
+  doc.setFontSize(16);
+  doc.text("Note:", 10, 45);
+  doc.setFontSize(12);
+  const splitContent = doc.splitTextToSize(note.content, 180);
+  doc.text(splitContent, 10, 55);
+  doc.save(`Note-${note.type}-${formatDate(note.created_date).replace(/\W+/g, "_")}.pdf`);
+}
 
-  function cancelEdit(idx) {
-    notes.value[idx].editing = false;
-  }
-
-  function formatDate(date) {
-    const d = new Date(date);
-    return d.toLocaleString();
-  }
-
-  function downloadNote(note) {
-    const doc = new jsPDF();
-    doc.setFontSize(14);
-    doc.text(`Type: ${note.type}`, 10, 10);
-    doc.text(`Created: ${formatDate(note.created_date)}`, 10, 20);
-    doc.text(`Updated: ${formatDate(note.updated_date)}`, 10, 30);
-    doc.setFontSize(16);
-    doc.text("Note:", 10, 45);
-    doc.setFontSize(12);
-    const splitContent = doc.splitTextToSize(note.content, 180);
-    doc.text(splitContent, 10, 55);
-    doc.save(
-      `Note-${note.type}-${formatDate(note.created_date).replace(/\W+/g, "_")}.pdf`
-    );
-  }
-
-  const notesFiltered = computed(() =>
-    noteStore.currentType === 'All'
-      ? notes.value
-      : notes.value.filter((n) => n.type === noteStore.currentType)
-  );
-  const notesSortedFiltered = computed(() =>
-    notesFiltered.value.slice().sort((a, b) => b.updated_date - a.updated_date)
-  );
+const notesFiltered = computed(() =>
+  noteStore.currentType === "All" ? notes.value : notes.value.filter((n) => n.type === noteStore.currentType)
+);
+const notesSortedFiltered = computed(() => notesFiltered.value.slice().sort((a, b) => b.updated_date - a.updated_date));
 
 const pageSize = ref(3);
 const currentPage = ref(1);
-const totalPages = computed(() =>
-  Math.ceil(notesSortedFiltered.value.length / pageSize.value)
-);
+const totalPages = computed(() => Math.ceil(notesSortedFiltered.value.length / pageSize.value));
 const paginatedNotes = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
   return notesSortedFiltered.value.slice(start, start + pageSize.value);
@@ -174,15 +165,19 @@ watch(notesSortedFiltered, () => {
           class="note-type-search"
           type="text"
           placeholder="Search types..."
-          style="margin: 0 0 12px 0; padding: 8px 12px; border-radius: 8px; border: 1.5px solid #cbd5e1; font-size: 1.05rem; background: #f8fafc; width: 90%; align-self: center;"
+          style="
+            margin: 0 0 12px 0;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 1.05rem;
+            background: #f8fafc;
+            width: 90%;
+            align-self: center;
+          "
         />
         <ul class="note-types-list">
-          <li
-            :class="{ selected: noteStore.currentType === 'All' }"
-            @click="selectType('All')"
-          >
-            All
-          </li>
+          <li :class="{ selected: noteStore.currentType === 'All' }" @click="selectType('All')">All</li>
           <li
             v-for="type in filteredNoteTypes"
             :key="type"
@@ -198,12 +193,7 @@ watch(notesSortedFiltered, () => {
         <div class="notes-header">
           <div class="notes-title">📝 Project Notes</div>
           <form class="add-note-form" @submit.prevent="addNote">
-            <textarea
-              v-model="newNote"
-              class="note-input"
-              placeholder="Write a new note..."
-              rows="2"
-            />
+            <textarea v-model="newNote" class="note-input" placeholder="Write a new note..." rows="2" />
             <button class="add-btn" :disabled="!newNote.trim()">Post</button>
           </form>
         </div>
@@ -211,60 +201,20 @@ watch(notesSortedFiltered, () => {
           <div v-if="notesFiltered.length === 0" class="empty-notes">
             No notes yet. Start documenting your project insights!
           </div>
-          <div
-            v-for="(note, idx) in paginatedNotes"
-            :key="note.ID"
-            class="note-card large"
-          >
+          <div v-for="(note, idx) in paginatedNotes" :key="note.ID" class="note-card large">
             <div class="note-content" v-if="!note.editing">
               {{ note.content }}
             </div>
-            <textarea
-              v-else
-              v-model="note.editContent"
-              class="note-edit-input"
-              rows="2"
-            />
+            <textarea v-else v-model="note.editContent" class="note-edit-input" rows="2" />
             <div class="note-meta">
               <span class="note-type">{{ note.type }}</span>
-              <span class="note-date"
-                >Created: {{ formatDate(note.created_date) }}</span
-              >
-              <span class="note-date"
-                >Updated: {{ formatDate(note.updated_date) }}</span
-              >
+              <span class="note-date">Created: {{ formatDate(note.created_date) }}</span>
+              <span class="note-date">Updated: {{ formatDate(note.updated_date) }}</span>
               <div class="note-actions">
-                <button
-                  v-if="!note.editing"
-                  @click="editNote(idx)"
-                  class="icon-btn"
-                  title="Edit"
-                >
-                  ✏️
-                </button>
-                <button
-                  v-if="note.editing"
-                  @click="saveEdit(idx)"
-                  class="icon-btn save"
-                  title="Save"
-                >
-                  💾
-                </button>
-                <button
-                  v-if="note.editing"
-                  @click="cancelEdit(idx)"
-                  class="icon-btn cancel"
-                  title="Cancel"
-                >
-                  ↩️
-                </button>
-                <button
-                  @click="downloadNote(note)"
-                  class="icon-btn download"
-                  title="Download Note"
-                >
-                  ⬇️
-                </button>
+                <button v-if="!note.editing" @click="editNote(idx)" class="icon-btn" title="Edit">✏️</button>
+                <button v-if="note.editing" @click="saveEdit(idx)" class="icon-btn save" title="Save">💾</button>
+                <button v-if="note.editing" @click="cancelEdit(idx)" class="icon-btn cancel" title="Cancel">↩️</button>
+                <button @click="downloadNote(note)" class="icon-btn download" title="Download Note">⬇️</button>
                 <!-- <button
                   @click="deleteNote(idx)"
                   class="icon-btn delete"

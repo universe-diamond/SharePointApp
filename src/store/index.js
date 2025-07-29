@@ -1,9 +1,9 @@
-import { defineStore } from 'pinia';
+import { defineStore } from "pinia";
 
-export const useUserStore = defineStore('user', {
+export const useUserStore = defineStore("user", {
   state: () => ({
     currentUser: null,
-    siteUserList: []
+    siteUserList: [],
   }),
   actions: {
     setUser(payload) {
@@ -12,71 +12,69 @@ export const useUserStore = defineStore('user', {
     setSiteUsers(payload) {
       this.siteUserList = payload;
     },
-  }
-})
+  },
+});
 
-export const useProjectStore = defineStore('project', {
+export const useProjectStore = defineStore("project", {
   state: () => ({
     setups: [],
     currentProject: null,
     loading: false,
   }),
   actions: {
-    setProjects (payload) {
+    setProjects(payload) {
       this.setups = payload;
     },
-    addProject (payload) {
+    addProject(payload) {
       this.setups.push(payload);
       this.setCurrent(payload);
     },
-    deleteProject () {
-
-    },
-    setCurrent (payload) {
+    deleteProject() {},
+    setCurrent(payload) {
       this.currentProject = payload;
     },
     editCurrent(payload) {
-      const temp = this.setups.find(item => item.ID == payload.ID);
+      const temp = this.setups.find((item) => item.ID == payload.ID);
       temp[payload.key] = payload.value;
       this.setCurrent(temp);
     },
-    setElements (elementName, data) {
-      this[elementName] = data.split(',');
+    setElements(elementName, data) {
+      this[elementName] = data.split(",");
     },
     addElement(elementName, data) {
-      this[elementName].push(data)
+      this[elementName].push(data);
     },
     deleteElement(elementName, data) {
-      this[elementName] = this[elementName].filter(item => item != data);
+      this[elementName] = this[elementName].filter((item) => item != data);
     },
     setLoading(val) {
       this.loading = val;
     },
-  }
-})
+  },
+});
 
-export const useTaskStore = defineStore('task', {
+export const useTaskStore = defineStore("task", {
   state: () => ({
     projectList: [],
     taskList: [],
     loading: false,
-    miniLoading: false
+    miniLoading: false,
   }),
   actions: {
     setProjects(payload) {
-      this.projectList = payload
+      this.projectList = payload;
     },
-    setTasks (payload) {
+    setTasks(payload) {
       this.taskList = payload;
     },
-    addTask (payload) {
+    addTask(payload) {
       this.taskList.push(payload);
     },
     deleteTasks(payload) {
-      this.taskList = this.taskList.filter(item => payload.indexOf(item.ID) === -1);
+      this.taskList = this.taskList.filter((item) => payload.indexOf(item.ID) === -1);
     },
-    editTask (payload) {
-      const editedTask = this.taskList.find(item => item.ID == payload.ID);
+    editTask(payload) {
+      const editedTask = this.taskList.find((item) => item.ID == payload.ID);
       editedTask.project_name = payload.project_name;
       editedTask.position = payload.position;
       editedTask.task = payload.task;
@@ -90,11 +88,11 @@ export const useTaskStore = defineStore('task', {
     },
     setMiniLoading(val) {
       this.miniLoading = val;
-    }
-  }
-})
+    },
+  },
+});
 
-export const useDailytaskStore = defineStore('dailytask', {
+export const useDailytaskStore = defineStore("dailytask", {
   state: () => ({
     schedule: [],
     allTasks: [],
@@ -103,28 +101,32 @@ export const useDailytaskStore = defineStore('dailytask', {
   }),
   actions: {
     setAvailableTasks(payload) {
-      this.availableTasks = this.allTasks.filter(item => payload.includes(item.task)).map(item => {return {id: item.ID, title: item.sub_task, code: item.phase}});
+      this.availableTasks = this.allTasks
+        .filter((item) => payload.includes(item.task))
+        .map((item) => {
+          return { id: item.ID, title: item.sub_task, code: item.phase };
+        });
     },
-    setSchedule (payload) {
-      this.schedule = payload
+    setSchedule(payload) {
+      this.schedule = payload;
     },
     setAllTasks(payload) {
-      this.allTasks = payload
+      this.allTasks = payload;
     },
     setAllBoards(payload) {
       this.allBoards = payload;
     },
     addBoard(payload) {
-      this.allBoards.push(payload)
+      this.allBoards.push(payload);
     },
     updateBoard(id, task_ids) {
-      const updated = this.allBoards.find(item => item.ID == id);
-      updated.task_ids = task_ids.join(',');
-    }
-  }
-})
+      const updated = this.allBoards.find((item) => item.ID == id);
+      updated.task_ids = task_ids.join(",");
+    },
+  },
+});
 
-export const useScheduleStore = defineStore('schedule', {
+export const useScheduleStore = defineStore("schedule", {
   state: () => ({
     total: [],
     projects: [],
@@ -142,20 +144,19 @@ export const useScheduleStore = defineStore('schedule', {
     selectedTasks: [],
   }),
   actions: {
-    
-    setTotal (payload) {
+    setTotal(payload) {
       this.total = payload;
     },
-    setProjects (payload) {
+    setProjects(payload) {
       this.projects = payload;
     },
-    setPhases (payload) {
+    setPhases(payload) {
       this.phases = payload;
     },
-    setTasks (payload) {
+    setTasks(payload) {
       this.tasks = payload;
     },
-    setSubTasks (payload) {
+    setSubTasks(payload) {
       this.sub_tasks = payload;
     },
     setLoading(val) {
@@ -183,59 +184,53 @@ export const useScheduleStore = defineStore('schedule', {
         this.filteredTasks = [];
         return;
       }
-      
-      const filtered = this.total.filter(item => 
-        item.project_name === this.selectedProject && 
-        item.phase === this.selectedPhase
+
+      const filtered = this.total.filter(
+        (item) => item.project_name === this.selectedProject && item.phase === this.selectedPhase
       );
-      
-      this.filteredTasks = [...new Set(filtered.map(item => item.task))];
+
+      this.filteredTasks = [...new Set(filtered.map((item) => item.task))];
     },
     getSubTasksForTask(taskName) {
       if (!this.selectedProject || !this.selectedPhase) {
         return [];
       }
-      
-      const filtered = this.total.filter(item => 
-        item.project_name === this.selectedProject && 
-        item.phase === this.selectedPhase &&
-        item.task === taskName
+
+      const filtered = this.total.filter(
+        (item) =>
+          item.project_name === this.selectedProject && item.phase === this.selectedPhase && item.task === taskName
       );
-      
-      return [...new Set(filtered.map(item => item.sub_task))];
+
+      return [...new Set(filtered.map((item) => item.sub_task))];
     },
     addScheduleData(ID, date, taskIds) {
       const formatDate = new Date(date).toISOString().slice(0, 10);
       this.scheduleData.push({ ID, date: formatDate, taskIds });
     },
     editScheduleData(ID, date, taskIds) {
-      this.scheduleData = this.scheduleData.filter(item => item.ID !== ID);
+      this.scheduleData = this.scheduleData.filter((item) => item.ID !== ID);
       const formatDate = new Date(date).toISOString().slice(0, 10);
-      this.scheduleData.push({ID, date: formatDate, taskIds});
+      this.scheduleData.push({ ID, date: formatDate, taskIds });
     },
     removeScheduleData(date, taskId) {
-      const index = this.scheduleData.findIndex(item => 
-        item.date === date && item.taskId === taskId
-      );
+      const index = this.scheduleData.findIndex((item) => item.date === date && item.taskId === taskId);
       if (index !== -1) {
         this.scheduleData.splice(index, 1);
       }
     },
     getScheduleDataForDate(date) {
-      return this.scheduleData.filter(item => item.date === date);
+      return this.scheduleData.filter((item) => item.date === date);
     },
     clearScheduleData() {
       this.scheduleData = [];
     },
     isTaskSelectedForDate(date, taskId) {
-      return this.scheduleData.some(item => 
-        item.date === date && item.taskId === taskId
-      );
-    }
-  }
-})
+      return this.scheduleData.some((item) => item.date === date && item.taskId === taskId);
+    },
+  },
+});
 
-export const useNoteStore = defineStore('note', {
+export const useNoteStore = defineStore("note", {
   state: () => ({
     projectList: [],
     typeList: [],
@@ -244,10 +239,10 @@ export const useNoteStore = defineStore('note', {
     loading: false,
   }),
   actions: {
-    setProjectList (payload) {
-      this.projectList = payload
+    setProjectList(payload) {
+      this.projectList = payload;
     },
-    setTypeList (payload) {
+    setTypeList(payload) {
       this.typeList = payload;
       this.setCurrentType(payload[0]);
     },
@@ -255,54 +250,58 @@ export const useNoteStore = defineStore('note', {
       this.currentType = payload;
     },
     setNoteList(payload) {
-      this.noteList = payload
+      this.noteList = payload;
     },
-    addNote (payload) {
+    addNote(payload) {
       this.noteList.unshift(payload);
     },
     editNote(payload) {
-      console.log("111",payload)
-      console.log(this.noteList)
-      const editedNote = this.noteList.find(item => item.ID == payload.ID);
-      console.log("222",editedNote)
+      console.log(this.noteList);
+      const editedNote = this.noteList.find((item) => item.ID == payload.ID);
       editedNote.content = payload.content;
       editedNote.updated_date = payload.updated_date;
-      console.log("333",this.noteList)
     },
     setLoading(val) {
       this.loading = val;
     },
-  }
-})
+  },
+});
 
-export const useTimelineStore = defineStore('timeline', {
+export const useTimelineStore = defineStore("timeline", {
   state: () => ({
-    timelineList: []
+    timelineList: [],
+    ProjectsInfo: [],
+    currentProject: {},
   }),
   actions: {
     setList(payload) {
-      this.timelineList = payload
+      this.timelineList = payload;
+    },
+    setProjects(payload) {
+      this.ProjectsInfo = payload;
     },
     addLine(payload) {
       this.timelineList.push(payload);
     },
     editLine(payload) {
-      const editedLine = this.timelineList.find(item => item.ID == payload.ID);
-      editedLine = payload;
+      this.timelineList = this.timelineList.map((item) => (item.ID == payload.ID ? payload : item));
     },
     deleteLine(payload) {
-      this.timelineList = this.timelineList.filter(item => payload.indexOf(item.ID) === -1);
-    }
-  }
-})
+      this.timelineList = this.timelineList.filter((item) => payload.indexOf(item.ID) === -1);
+    },
+  },
+});
 
-export const useSunburstStore = defineStore('sunburst', {
+export const useSunburstStore = defineStore("sunburst", {
   state: () => ({
-    taskData: []
+    taskData: [],
   }),
   actions: {
     setTaskData(payload) {
-      this.taskData = payload
-    }
-  }
-})
+      this.taskData = payload;
+    },
+    addTask(payload) {
+      this.taskData.push(payload);
+    },
+  },
+});
