@@ -7,6 +7,7 @@ import { getItem } from "../../actions/getItem";
 
 const props = defineProps({
   baseInfo: Array,
+  baseStatus: Array,
   selectedProject: String,
 });
 

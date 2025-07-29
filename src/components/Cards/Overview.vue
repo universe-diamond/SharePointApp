@@ -12,7 +12,6 @@ const baseMembers = ref([]);
 const baseStatus = ref([]);
 const memberList = computed(() => ["ALL", ...baseMembers.value]);
 const selectedMembers = ref(["ALL"]);
-const selectedMember = ref(null);
 const selectedProject = ref(null);
 
 onMounted(() => {
@@ -91,7 +90,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject" />
+            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject" :baseStatus="baseStatus" />
           </q-card-section>
         </q-card>
       </div>
@@ -123,7 +122,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <MemberWorkloadCard :member="baseMembers" :status="baseStatus" />
+            <MemberWorkloadCard :selectedProject="selectedProject" :member="baseMembers" :status="baseStatus" />
           </q-card-section>
         </q-card>
       </div>
