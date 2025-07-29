@@ -75,13 +75,15 @@ export const useTaskStore = defineStore("task", {
     },
     editTask(payload) {
       const editedTask = this.taskList.find((item) => item.ID == payload.ID);
-      editedTask.project_name = payload.project_name;
-      editedTask.position = payload.position;
-      editedTask.task = payload.task;
-      editedTask.sub_task = payload.sub_task;
-      editedTask.description = payload.description;
-      editedTask.groups = payload.groups;
-      editedTask.architecture = payload.architecture;
+      if (editedTask) {
+        Object.assign(editedTask, payload);
+      }
+    },
+    updateTask(payload) {
+      const index = this.taskList.findIndex((item) => item.ID == payload.ID);
+      if (index !== -1) {
+        this.taskList[index] = { ...this.taskList[index], ...payload };
+      }
     },
     setLoading(val) {
       this.loading = val;
@@ -271,7 +273,7 @@ export const useTimelineStore = defineStore("timeline", {
   state: () => ({
     timelineList: [],
     ProjectsInfo: [],
-    currentProject: {},
+    currentProject: null,
   }),
   actions: {
     setList(payload) {
@@ -280,14 +282,11 @@ export const useTimelineStore = defineStore("timeline", {
     setProjects(payload) {
       this.ProjectsInfo = payload;
     },
-    addLine(payload) {
-      this.timelineList.push(payload);
-    },
     editLine(payload) {
       this.timelineList = this.timelineList.map((item) => (item.ID == payload.ID ? payload : item));
     },
-    deleteLine(payload) {
-      this.timelineList = this.timelineList.filter((item) => payload.indexOf(item.ID) === -1);
+    setCurrentProject(payload) {
+      this.currentProject = payload;
     },
   },
 });

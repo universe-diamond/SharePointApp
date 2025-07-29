@@ -144,6 +144,7 @@ onMounted(() => {
     <SunburstChart
       :baseInfo="props.baseInfo"
       :selectedProject="selectedProject"
+      :baseStatus="props.baseStatus"
       component-id="chartId"
       :class="{ 'fullscreen-chart': isFullscreen }"
     />
