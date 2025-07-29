@@ -7,6 +7,7 @@
     <button class="addtask-btn" @click="toggleAddTaskCard">+</button>
     <SunburstChart
       :baseInfo="props.baseInfo"
+      :baseStatus="props.baseStatus"
       :selectedProject="selectedProject"
       component-id="chartId"
       :class="{ 'fullscreen-chart': isFullscreen }"
@@ -90,6 +91,7 @@ import { getItem } from "../../actions/getItem";
 
 const props = defineProps({
   baseInfo: Array,
+  baseStatus: Array,
   selectedProject: String,
 });
 

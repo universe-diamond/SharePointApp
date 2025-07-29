@@ -10,6 +10,7 @@ const sunburstStore = useSunburstStore();
 
 const props = defineProps({
   baseInfo: Array,
+  baseStatus: Array,
   selectedProject: String,
 });
 
@@ -33,15 +34,15 @@ onMounted(() => {
   isLoading.value = true;
 
   // Fetch data from Tasks list
-  const taskFields = ["ID", "project_name", "phase", "task", "sub_task", "description", "groups", "architecture"];
-
-  // Fetch data from Plans list
-  const planFields = [
+  const taskFields = [
     "ID",
     "project_name",
     "phase",
     "task",
     "sub_task",
+    "description",
+    "groups",
+    "architecture",
     "timeline_progress",
     "status",
     "assigned_to",
@@ -51,21 +52,11 @@ onMounted(() => {
   ];
 
   // Fetch both lists
-  Promise.all([getAllItems("Tasks", taskFields), getItem("Plans", planFields)])
-    .then(([taskData, planData]) => {
-      const mergedData = mergeTaskAndPlanData(taskData, planData);
-      sunburstStore.setTaskData(mergedData);
-      // Set loading to false after data is loaded
-      isLoading.value = false;
-    })
-    .catch((error) => {
-      // Fallback to just Tasks data if Plans fetch fails
-      getAllItems("Tasks", taskFields).then((taskData) => {
-        sunburstStore.setTaskData(taskData);
-        // Set loading to false after data is loaded
-        isLoading.value = false;
-      });
-    });
+  getAllItems("Tasks", taskFields).then((taskData) => {
+    sunburstStore.setTaskData(taskData);
+    // Set loading to false after data is loaded
+    isLoading.value = false;
+  });
 });
 
 // Function to process long titles
@@ -529,8 +520,8 @@ function createSunburstChart() {
     .data(root.descendants().slice(1))
     .join("path")
     .attr("fill", (d) => {
-      while (d.depth > 1) d = d.parent;
-      return color(d.data.name);
+      // Use status-based color if available
+      return getStatusColor(d.data.status || d.data.name);
     })
     .attr("fill-opacity", (d) => (arcVisible(d.current) ? (d.children ? 0.6 : 0.4) : 0))
     .attr("d", (d) => arc(d.current))
@@ -739,15 +730,23 @@ function createLegendItems() {
   if (chartData.value.children) {
     const colorScale = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, chartData.value.children.length + 1));
     chartData.value.children.forEach((child) => {
+      console.log({ child });
       items.push({
         key: child.name,
         name: child.name,
-        color: colorScale(child.name),
+        color: getStatusColor(child.status),
       });
     });
   }
   legendItems.value = items;
 }
+
+// Utility to get color by status name from props.baseStatus
+const getStatusColor = (status) => {
+  if (!props.baseStatus) return "#ccc";
+  const found = props.baseStatus.find((s) => s.name === status);
+  return found ? found.color : "#ccc";
+};
 
 defineExpose({
   toggleHold,
