@@ -31,116 +31,10 @@ defineOptions({ name: "ProjectTimeline" });
 const fileInput = ref(null);
 const selectedFile = ref(null);
 
-const isImporting = ref(false);
-const importProgress = ref(0);
-const importTotal = ref(0);
-const importCurrent = ref(0);
-
 const selectedProject = ref(null);
 const ganttData = ref([]);
 const loading = ref(true);
 
-function excelSerialToDate(serial) {
-  const excelEpochOffset = 25569;
-  const millisecondsInDay = 86400 * 1000;
-  return new Date((serial - excelEpochOffset) * millisecondsInDay);
-}
-
-function formatDate(date) {
-  if (!date) return "";
-
-  const yyyy = date.getFullYear();
-  let mm = date.getMonth() + 1;
-  let dd = date.getDate();
-
-  mm = mm < 10 ? "0" + mm : mm;
-  dd = dd < 10 ? "0" + dd : dd;
-
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function timelineProgressFormat(timeline) {
-  if (timeline == "" || timeline == null) return "";
-  return timeline * 100;
-}
-
-const statusHash = {
-  COMPLETED: "completed",
-  "NOT STARTED": "notstarted",
-  DELAYED: "delayed",
-  "ON GOING": "inprogress",
-  "AT RISK": "",
-  PENDING: "roadblock",
-  "ON TIME": "",
-  LATE: "",
-};
-
-const handleFileUpload = async (file) => {
-  if (!file) return;
-
-  isImporting.value = true;
-  importProgress.value = 0;
-  importCurrent.value = 0;
-
-  try {
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data);
-
-    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-
-    let jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-
-    const filteredData = jsonData.filter((row) => row["Activity"] && row["Start Date"] && row["Deadline Date"]);
-
-    const normalizedData = filteredData.map((item) => {
-      return {
-        Title: String(item["Activity"] || ""),
-        assigned_to: String(item["Assigned To"] || ""),
-        dependency: String(item["Dependency"] || ""),
-        start_date: formatDate(excelSerialToDate(item["Start Date"])) || "",
-        deadline_date: formatDate(excelSerialToDate(item["Deadline Date"])) || "",
-        duration: Number(item["Project Duration"] || 0),
-        passed_days: String(item["Days Passed From Start Date"] || ""),
-        left_days: String(item["Days Left To Deadline Date"] || ""),
-        timeline_progress: Number(timelineProgressFormat(item["Timeline Progress"]) || 0),
-        status: String(statusHash[item["Status"]] || ""),
-      };
-    });
-
-    const normalGanttData = normalizedData.map((item) => normalizeGanttDates(item));
-
-    const finalData = normalGanttData.filter((t) => t.Title.trim());
-
-    importTotal.value = finalData.length;
-    importCurrent.value = 0;
-
-    for (let i = 0; i < finalData.length; i++) {
-      const timeline = finalData[i];
-      try {
-        const res = await addItem("Plans", timeline);
-        timelineStore.addLine({ ...timeline, ID: res.ID });
-
-        importCurrent.value = i + 1;
-        importProgress.value = Math.round((importCurrent.value / importTotal.value) * 100);
-
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      } catch (error) {
-        console.error("Failed to import timeline:", timeline, error);
-      }
-    }
-
-    selectedFile.value = null;
-  } catch (error) {
-    console.error("Error importing file:", error);
-  } finally {
-    setTimeout(() => {
-      isImporting.value = false;
-      importProgress.value = 0;
-      importCurrent.value = 0;
-      importTotal.value = 0;
-    }, 1000);
-  }
-};
 
 function normalizeGanttDates(item) {
   const dateFields = ["start_date", "deadline_date"];
@@ -162,7 +56,6 @@ watch(
   () => selectedProject.value,
   (source) => {
     ganttData.value = timelineStore.timelineList.filter((item) => item.project_name == source);
-    console.log({ timelinelist: timelineStore.timelineList, a: ganttData.value });
   },
   { immediate: true, deep: true }
 );
@@ -326,9 +219,6 @@ onMounted(() => {
 
   getItem("Projects", fields2).then((res) => {
     timelineStore.setProjects(res);
-    if (res.length > 0) {
-      selectedProject.value = res[0].Title;
-    }
   });
 });
 </script>
@@ -336,57 +226,17 @@ onMounted(() => {
 <template>
   <LoadingSpinner :showing="loading" text="Loading project timeline...">
     <q-card class="timeline-body">
-      <div class="import-section q-mb-md">
-        <div style="margin-bottom: 1rem">
-          <a href="/src/assets/data/Timeline_template.xlsx">Timeline_template.xlsx</a>
-        </div>
-        <q-card class="import-card">
-          <q-card-section>
-            <div class="text-h6 q-mb-sm">Import Timeline from Excel</div>
-            <div class="row q-gutter-md items-center">
-              <q-file
-                ref="fileInput"
-                v-model="selectedFile"
-                label="Choose Excel File"
-                accept=".xlsx,.xls"
-                outlined
-                dense
-                @update:model-value="handleFileUpload"
-                class="col-grow"
-              >
-                <template v-slot:prepend>
-                  <q-icon name="upload_file" />
-                </template>
-              </q-file>
-
-              <q-btn
-                v-if="isImporting"
-                color="primary"
-                :loading="true"
-                :label="`Importing... ${importProgress}%`"
-                class="col-auto"
-              />
-            </div>
-
-            <div v-if="isImporting" class="q-mt-sm">
-              <q-linear-progress :value="importProgress / 100" color="primary" class="q-mb-xs" />
-              <div class="text-caption">Imported {{ importCurrent }} of {{ importTotal }} items</div>
-            </div>
-          </q-card-section>
-        </q-card>
-      </div>
-      <div style="margin: 5px 0px">
+      <div style="margin-bottom: 1rem">
         <q-select
           v-model="selectedProject"
           :options="projectOptions"
           dense
           outlined
-          style="width: 70%"
+          style="width: 40%"
           emit-value
           map-options
           :clearable="true"
         />
-        {{ console.log({a:timelineStore.ProjectsInfo,b:projectOptions}) }}
       </div>
       <GanttComponent
         :dataSource="ganttData"
