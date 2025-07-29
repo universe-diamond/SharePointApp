@@ -160,6 +160,14 @@ const showAddForm = ref(false);
 const newConfirmState = ref(false);
 const miniLoading = ref(false);
 
+// Edit task functionality
+const showEditForm = ref(false);
+const editingTask = ref({});
+const editConfirmState = ref(false);
+const editLoading = ref(false);
+
+
+
 onMounted(() => {
   taskStore.setLoading(true);
   const fields1 = ["ID", "project_name", "phase", "task", "sub_task", "description", "groups", "architecture"];
@@ -250,6 +258,43 @@ function cancelNewTask() {
   showAddForm.value = false;
   newConfirmState.value = false;
 }
+
+// Edit task functions
+const openEditForm = (task) => {
+  editingTask.value = { ...task };
+  showEditForm.value = true;
+  editConfirmState.value = false;
+};
+
+const saveEditedTask = async () => {
+  editConfirmState.value = true;
+  if (!isRowValid(editingTask.value)) return;
+
+  editLoading.value = true;
+
+  try {
+    await editItem("Tasks", editingTask.value.ID, editingTask.value);
+    taskStore.updateTask(editingTask.value);
+    showEditForm.value = false;
+    editConfirmState.value = false;
+
+    // Show success notification
+    showSuccessNotification("Task updated successfully!", "edit");
+  } catch (error) {
+    console.error("Failed to update task:", error);
+    showErrorNotification("Failed to update task. Please try again.");
+  } finally {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    editLoading.value = false;
+  }
+};
+
+const cancelEditTask = () => {
+  showEditForm.value = false;
+  editConfirmState.value = false;
+};
+
+
 
 const deleteSelectedRows = () => {
   // Get selected task IDs from tree selection
@@ -364,6 +409,31 @@ const taskOptions = computed(() => {
   }));
 });
 
+// Edit form options
+const editPhaseOptions = computed(() => {
+  const project = taskStore.projectList.find((p) => p.Title === editingTask.value.project_name);
+  if (!project || !project.phases) return [];
+  return project.phases.split(",").map((phase) => ({
+    label: phase.trim(),
+    value: phase.trim(),
+  }));
+});
+
+const editTaskOptions = computed(() => {
+  const uniqueTasks = [
+    ...new Set(
+      taskStore.taskList
+        .filter((task) => task.project_name == editingTask.value.project_name && task.phase == editingTask.value.phase)
+        .map((task) => task.task)
+        .filter((task) => task && task.trim())
+    ),
+  ];
+  return uniqueTasks.map((task) => ({
+    label: task,
+    value: task,
+  }));
+});
+
 // Tree structure for tasks
 const treeData = computed(() => {
   const projects = {};
@@ -434,9 +504,9 @@ function handleProjectChange(val) {
   newTask.value.phase = ""; // Reset phase when project changes
 }
 
-function handleEditProjectChange(val, row) {
-  row.project_name = val;
-  row.phase = "";
+function handleEditProjectChange(val) {
+  editingTask.value.project_name = val;
+  editingTask.value.phase = "";
 }
 
 const filteredTreeData = computed(() => {
@@ -890,7 +960,15 @@ const isNodeMatchingSearch = (node) => {
                   color="primary"
                 />
                 <q-icon :name="prop.node.icon" class="q-mr-sm" />
-                <span class="text-weight-medium" v-html="highlightSearchText(prop.node.label)"></span>
+                <div v-if="prop.node.taskData" style="display: inline-block">
+                  <q-tooltip> Click to edit task details </q-tooltip>
+                  <span
+                    class="text-weight-medium editable-title"
+                    v-html="highlightSearchText(prop.node.label)"
+                    @click.stop="openEditForm(prop.node.taskData)"
+                  ></span>
+                </div>
+                <span v-else class="text-weight-medium" v-html="highlightSearchText(prop.node.label)"></span>
                 <q-space />
                 <template v-if="prop.node.taskData">
                   <q-chip
@@ -933,6 +1011,136 @@ const isNodeMatchingSearch = (node) => {
         </div>
       </div>
     </LoadingSpinner>
+
+    <!-- Context Menu -->
+    <q-menu v-model="showContextMenu" :position="contextMenuPosition" @hide="hideContextMenu" class="context-menu">
+      <q-list style="min-width: 150px">
+        <q-item clickable v-close-popup @click="openEditFormFromContext">
+          <q-item-section avatar>
+            <q-icon name="edit" />
+          </q-item-section>
+          <q-item-section>Update</q-item-section>
+        </q-item>
+      </q-list>
+    </q-menu>
+
+    <!-- Edit Task Modal -->
+    <q-dialog v-model="showEditForm" persistent>
+      <q-card style="min-width: 800px; max-width: 90vw">
+        <q-card-section class="row items-center q-pb-none">
+          <div class="text-h6">
+            <q-icon name="edit" class="q-mr-sm" />
+            Edit Task
+          </div>
+          <q-space />
+          <q-btn icon="close" flat round dense v-close-popup @click="cancelEditTask" />
+        </q-card-section>
+
+        <q-card-section class="q-pt-none">
+          <div class="q-mt-md">
+            <!-- First row: Project Name, Phase, Task, Sub Task -->
+            <q-row gutter="md" class="q-mb-md">
+              <q-col cols="12" sm="6" md="3">
+                <q-select
+                  v-model="editingTask.project_name"
+                  :options="projectOptions"
+                  label="Project Name"
+                  dense
+                  outlined
+                  emit-value
+                  map-options
+                  :error="isFieldInvalid('project_name', editingTask) && editConfirmState"
+                  :error-message="isFieldInvalid('project_name', editingTask) && editConfirmState ? 'Required' : ''"
+                  @update:model-value="handleEditProjectChange"
+                />
+              </q-col>
+              <q-col cols="12" sm="6" md="3">
+                <q-select
+                  v-model="editingTask.phase"
+                  :options="editPhaseOptions"
+                  label="Phase"
+                  dense
+                  outlined
+                  emit-value
+                  map-options
+                  :disable="!editingTask.project_name"
+                  :error="isFieldInvalid('phase', editingTask) && editConfirmState"
+                  :error-message="isFieldInvalid('phase', editingTask) && editConfirmState ? 'Required' : ''"
+                />
+              </q-col>
+              <q-col cols="12" sm="6" md="3">
+                <q-select
+                  v-model="editingTask.task"
+                  :options="editTaskOptions"
+                  label="Task"
+                  dense
+                  outlined
+                  emit-value
+                  map-options
+                  use-input
+                  new-value-mode="add-unique"
+                  :error="isFieldInvalid('task', editingTask) && editConfirmState"
+                  :error-message="isFieldInvalid('task', editingTask) && editConfirmState ? 'Required' : ''"
+                />
+              </q-col>
+              <q-col cols="12" sm="6" md="3">
+                <q-input
+                  v-model="editingTask.sub_task"
+                  label="Sub Task"
+                  dense
+                  outlined
+                  :error="isFieldInvalid('sub_task', editingTask) && editConfirmState"
+                  :error-message="isFieldInvalid('sub_task', editingTask) && editConfirmState ? 'Required' : ''"
+                />
+              </q-col>
+            </q-row>
+
+            <!-- Second row: Description, Groups, Architecture with 4:3:3 proportion -->
+            <q-row gutter="md">
+              <q-col cols="12" md="4">
+                <q-input
+                  v-model="editingTask.description"
+                  label="Description"
+                  dense
+                  outlined
+                  :error="isFieldInvalid('description', editingTask) && editConfirmState"
+                  :error-message="isFieldInvalid('description', editingTask) && editConfirmState ? 'Required' : ''"
+                />
+              </q-col>
+              <q-col cols="12" md="3">
+                <q-input
+                  v-model="editingTask.groups"
+                  label="Groups"
+                  dense
+                  outlined
+                  :error="isFieldInvalid('groups', editingTask) && editConfirmState"
+                  :error-message="isFieldInvalid('groups', editingTask) && editConfirmState ? 'Required' : ''"
+                />
+              </q-col>
+              <q-col cols="12" md="3">
+                <q-input
+                  v-model="editingTask.architecture"
+                  label="Architecture"
+                  dense
+                  outlined
+                  :error="isFieldInvalid('architecture', editingTask) && editConfirmState"
+                  :error-message="isFieldInvalid('architecture', editingTask) && editConfirmState ? 'Required' : ''"
+                />
+              </q-col>
+            </q-row>
+          </div>
+        </q-card-section>
+
+        <q-card-actions align="right" class="q-pa-md">
+          <q-btn flat label="Cancel" @click="cancelEditTask" />
+          <q-btn color="primary" label="Update" @click="saveEditedTask" :loading="editLoading">
+            <template v-slot:loading>
+              <q-spinner size="18px" color="white" />
+            </template>
+          </q-btn>
+        </q-card-actions>
+      </q-card>
+    </q-dialog>
   </q-card>
 </template>
 
@@ -987,6 +1195,31 @@ const isNodeMatchingSearch = (node) => {
   border: 2px solid #1976d2 !important;
   border-radius: 4px;
   animation: pulse 2s ease-in-out;
+}
+
+.editable-title {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.editable-title:hover {
+  background-color: #e3f2fd;
+  color: #1976d2;
+}
+
+.context-menu {
+  z-index: 2000;
+}
+
+.context-menu .q-item {
+  min-height: 40px;
+  padding: 8px 16px;
+}
+
+.context-menu .q-item:hover {
+  background-color: #e3f2fd;
 }
 
 @keyframes pulse {
