@@ -351,14 +351,16 @@ function updateStatusColor(colIdx, itemIdx, newColor) {
           {{ project.Title }}
         </option>
       </select>
-      <input
-        v-model="newProjectName"
-        @keyup.enter="addProject"
-        class="project-input"
-        type="text"
-        placeholder="New project name"
-      />
-      <button class="add-project-btn" @click="addProject">Add Project</button>
+      <div style="float: right">
+        <input
+          v-model="newProjectName"
+          @keyup.enter="addProject"
+          class="project-input"
+          type="text"
+          placeholder="New project name"
+        />
+        <button class="add-project-btn" @click="addProject">Submit</button>
+      </div>
     </div>
     <div class="setup-dashboard">
       <div v-for="(column, colIdx) in current.columns" :key="colIdx" class="dashboard-column" ref="dashboardColumns">
@@ -492,10 +494,9 @@ function updateStatusColor(colIdx, itemIdx, newColor) {
 
 <style lang="scss" scoped>
 .project-controls {
-  display: flex;
   align-items: center;
   gap: 1rem;
-  margin: 2rem 0 1rem 3rem;
+  margin: 2rem 3rem 1rem;
 }
 .project-label {
   font-weight: 600;
@@ -530,6 +531,7 @@ function updateStatusColor(colIdx, itemIdx, newColor) {
   padding: 0.3rem 1rem;
   font-size: 1rem;
   font-weight: 600;
+  margin-left: 1rem;
   cursor: pointer;
   transition: background 0.2s;
 }
