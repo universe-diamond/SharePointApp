@@ -1,24 +1,31 @@
 <script setup>
-import { ref, provide, onMounted, watch } from "vue";
-import { GanttComponent, ColumnsDirective, ColumnDirective, Edit, Toolbar, Selection, DayMarkers, Dependency } from "@syncfusion/ej2-vue-gantt";
-import * as XLSX from 'xlsx';
+import { ref, provide, onMounted, watch, computed } from "vue";
+import {
+  GanttComponent,
+  ColumnsDirective,
+  ColumnDirective,
+  Edit,
+  Toolbar,
+  Selection,
+  DayMarkers,
+} from "@syncfusion/ej2-vue-gantt";
+import * as XLSX from "xlsx";
 
 import { useTimelineStore } from "../store";
-import { addItem } from '../actions/addItem';
-import { editItem } from '../actions/editItem';
-import { getItem } from '../actions/getItem';
-import { deleteItem } from '../actions/deleteItem';
+import { addItem } from "../actions/addItem";
+import { editItem } from "../actions/editItem";
+import { getItem } from "../actions/getItem";
+import { getAllItems } from "../actions/getAllItem";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 
 const timelineStore = useTimelineStore();
 
-provide('gantt', [Edit, Toolbar, Selection, DayMarkers]);
-
 defineExpose({
   GanttComponent,
   ColumnsDirective,
-  ColumnDirective
+  ColumnDirective,
 });
+
 defineOptions({ name: "ProjectTimeline" });
 
 const fileInput = ref(null);
@@ -29,6 +36,7 @@ const importProgress = ref(0);
 const importTotal = ref(0);
 const importCurrent = ref(0);
 
+const selectedProject = ref(null);
 const ganttData = ref([]);
 const loading = ref(true);
 
@@ -39,34 +47,33 @@ function excelSerialToDate(serial) {
 }
 
 function formatDate(date) {
-  if (!date) return ''; // If date is invalid, return an empty string
+  if (!date) return "";
 
   const yyyy = date.getFullYear();
-  let mm = date.getMonth() + 1; // Months are zero-indexed
+  let mm = date.getMonth() + 1;
   let dd = date.getDate();
 
-  // Add leading zeroes for single-digit months and days
-  mm = mm < 10 ? '0' + mm : mm;
-  dd = dd < 10 ? '0' + dd : dd;
+  mm = mm < 10 ? "0" + mm : mm;
+  dd = dd < 10 ? "0" + dd : dd;
 
-  return `${yyyy}-${mm}-${dd}`; // Return the date string in 'yyyy-MM-dd' format
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 function timelineProgressFormat(timeline) {
-  if(timeline == "" || timeline == null) return ""
+  if (timeline == "" || timeline == null) return "";
   return timeline * 100;
 }
 
 const statusHash = {
-  "COMPLETED": "completed",
+  COMPLETED: "completed",
   "NOT STARTED": "notstarted",
-  "DELAYED": "delayed",
+  DELAYED: "delayed",
   "ON GOING": "inprogress",
   "AT RISK": "",
-  "PENDING": "roadblock",
-  "ON TIME":"",
-  "LATE": ""
-}
+  PENDING: "roadblock",
+  "ON TIME": "",
+  LATE: "",
+};
 
 const handleFileUpload = async (file) => {
   if (!file) return;
@@ -81,30 +88,28 @@ const handleFileUpload = async (file) => {
 
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
 
-    let jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+    let jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
 
-    const filteredData = jsonData.filter(row => row['Activity'] && row['Start Date'] && row['Deadline Date']);
+    const filteredData = jsonData.filter((row) => row["Activity"] && row["Start Date"] && row["Deadline Date"]);
 
-    const normalizedData = filteredData.map(item => {
+    const normalizedData = filteredData.map((item) => {
       return {
-        Title: String(item['Activity'] || ''),
-        assigned_to: String(item['Assigned To'] || ''),
-        dependency: String(item['Dependency'] || ''),
-        start_date: formatDate(excelSerialToDate(item['Start Date'])) || '',
-        deadline_date: formatDate(excelSerialToDate(item['Deadline Date'])) || '',
-        duration: Number(item['Project Duration'] || 0),
-        passed_days: String(item['Days Passed From Start Date'] || ''),
-        left_days: String(item['Days Left To Deadline Date'] || ''),
-        timeline_progress: Number(timelineProgressFormat(item['Timeline Progress']) || 0),
-        status: String(statusHash[item['Status']] || ''),
+        Title: String(item["Activity"] || ""),
+        assigned_to: String(item["Assigned To"] || ""),
+        dependency: String(item["Dependency"] || ""),
+        start_date: formatDate(excelSerialToDate(item["Start Date"])) || "",
+        deadline_date: formatDate(excelSerialToDate(item["Deadline Date"])) || "",
+        duration: Number(item["Project Duration"] || 0),
+        passed_days: String(item["Days Passed From Start Date"] || ""),
+        left_days: String(item["Days Left To Deadline Date"] || ""),
+        timeline_progress: Number(timelineProgressFormat(item["Timeline Progress"]) || 0),
+        status: String(statusHash[item["Status"]] || ""),
       };
     });
 
-    const normalGanttData = normalizedData.map(item => normalizeGanttDates(item));
+    const normalGanttData = normalizedData.map((item) => normalizeGanttDates(item));
 
-    const finalData = normalGanttData.filter(t =>
-      t.Title.trim()
-    );
+    const finalData = normalGanttData.filter((t) => t.Title.trim());
 
     importTotal.value = finalData.length;
     importCurrent.value = 0;
@@ -112,21 +117,19 @@ const handleFileUpload = async (file) => {
     for (let i = 0; i < finalData.length; i++) {
       const timeline = finalData[i];
       try {
-        console.log(timeline)
         const res = await addItem("Plans", timeline);
         timelineStore.addLine({ ...timeline, ID: res.ID });
-        
+
         importCurrent.value = i + 1;
         importProgress.value = Math.round((importCurrent.value / importTotal.value) * 100);
-        
-        await new Promise(resolve => setTimeout(resolve, 100));
+
+        await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         console.error("Failed to import timeline:", timeline, error);
       }
     }
 
     selectedFile.value = null;
-    
   } catch (error) {
     console.error("Error importing file:", error);
   } finally {
@@ -140,9 +143,9 @@ const handleFileUpload = async (file) => {
 };
 
 function normalizeGanttDates(item) {
-  const dateFields = ["start_date", "end_date", "deadline_date"];
+  const dateFields = ["start_date", "deadline_date"];
   const newItem = { ...item };
-  dateFields.forEach(field => {
+  dateFields.forEach((field) => {
     if (newItem[field] && typeof newItem[field] === "string") {
       newItem[field] = new Date(newItem[field]);
     }
@@ -153,133 +156,101 @@ function normalizeGanttDates(item) {
   return newItem;
 }
 
-onMounted(() => {
-  loading.value = true;
-  const fields = ["ID", "Title", "assigned_to", "dependency", "start_date", "end_date", "deadline_date", "duration", "passed_days", "left_days", "timeline_progress", "status", "resource_info"];
-  getItem("Plans", fields).then(res => {
-    const normalized = res.map(normalizeGanttDates);
-    timelineStore.setList(normalized);
-    loading.value = false;
-  })
-})
+provide("gantt", [Edit, Toolbar, Selection, DayMarkers]);
 
 watch(
-  () => timelineStore.timelineList,
+  () => selectedProject.value,
   (source) => {
-    ganttData.value = source
+    ganttData.value = timelineStore.timelineList.filter((item) => item.project_name == source);
+    console.log({ timelinelist: timelineStore.timelineList, a: ganttData.value });
   },
   { immediate: true, deep: true }
-)
+);
 
 const taskFields = {
   id: "ID",
-  name: "Title",
+  name: "sub_task",
   assignedTo: "assigned_to",
   Dependency: "dependency",
   startDate: "start_date",
-  endDate: "end_date",
+  endDate: "endDate",
   deadlineDate: "deadline_date",
   duration: "duration",
   passedDays: "passed_days",
   leftDays: "left_days",
   progress: "timeline_progress",
   status: "status",
-  resourceInfo: "resource_info",
+  resourceInfo: "resourceInfo",
   indicators: "Indicators",
 };
 const viewMode = ref({ timelineViewMode: "Week" });
+
 const editSettings = ref({
-  allowAdding: true,
   allowEditing: true,
-  allowDeleting: true,
-  allowTaskbarEditing: true,
-  showDeleteConfirmDialog: true,
 });
+
 const labelSettings = ref({
-    taskLabel: "Title",
-    taskLabelFont: {
-      size: "12px",
-      color: "#ffffff"
-    },
-    taskLabelPosition: "Left"
+  taskLabel: "sub_task",
+  taskLabelFont: {
+    size: "12px",
+    color: "#ffffff",
+  },
+  taskLabelPosition: "Left",
 });
 
 const taskbarRendering = (args) => {
-  if (args.data.Title) {
+  if (args.data.sub_task) {
     const taskbar = args.element;
-    const textElement = taskbar.querySelector('.e-taskbar-text');
+    const textElement = taskbar.querySelector(".e-taskbar-text");
     if (textElement) {
-      textElement.style.textAlign = 'left';
-      textElement.style.width = '100%';
-      textElement.style.position = 'absolute';
-      textElement.style.left = '50%';
-      textElement.style.top = '50%';
-      textElement.style.transform = 'translate(-50%, -50%)';
+      textElement.style.textAlign = "left";
+      textElement.style.width = "100%";
+      textElement.style.position = "absolute";
+      textElement.style.left = "50%";
+      textElement.style.top = "50%";
+      textElement.style.transform = "translate(-50%, -50%)";
     }
   }
 };
 const splitterSettings = ref({ position: "23%" });
-const toolbar = ref(["Add", "Edit", "Delete", "Update", "Cancel"]);
 const allowSelection = ref(true);
 
 function onActionComplete(args) {
-  if (args.requestType === "add") {
-    const addData = {
-      Title: args.data.Title,
-      assigned_to: args.data.assigned_to,
-      dependency: args.data.dependency,
-      start_date: args.data.start_date,
-      end_date: args.data.end_date,
-      deadline_date: args.data.deadline_date,
-      duration: args.data.duration,
-      passed_days: args.data.passed_days,
-      left_days: args.data.left_days,
-      timeline_progress: args.data.timeline_progress,
-      status: args.data.status,
-      resource_info: args.data.resource_info,
-    };
-    addItem("Plans", addData).then(res => {
-      timelineStore.addLine(normalizeGanttDates({
-        ...addData,
-        ID: res.ID
-      }))
-    })
-  } else if (args.requestType === "save") {
+  if (args.requestType === "save") {
     const editData = {
-      Title: args.data.Title,
+      sub_task: args.data.sub_task,
       assigned_to: args.data.assigned_to,
       dependency: args.data.dependency,
       start_date: args.data.start_date,
-      end_date: args.data.end_date,
       deadline_date: args.data.deadline_date,
       duration: args.data.duration,
       passed_days: args.data.passed_days,
       left_days: args.data.left_days,
       timeline_progress: args.data.timeline_progress,
       status: args.data.status,
-      resource_info: args.data.resource_info,
     };
 
-    editItem("Plans", args.data.ID, editData).then(res => {
-      timelineStore.addLine(normalizeGanttDates({
-        ...editData,
-        ID: args.data.ID
-      }))
-    });
-  } else if (args.requestType === "delete") {
-    deleteItem("Plans", args.data.map(item => item.ID)).then(res => {
-      timelineStore.deleteLine(args.data.map(item => item.ID))
+    editItem("Tasks", args.data.ID, editData).then((res) => {
+      timelineStore.editLine(
+        normalizeGanttDates({
+          ...editData,
+          ID: args.data.ID,
+        })
+      );
     });
   }
 }
 
-const statusOptions = [
-  { value: "notstarted", text: "NOT STARTED" },
-  { value: "inprogress", text: "IN PROGRESS" },
-  { value: "delayed", text: "DELAYED" },
-  { value: "roadblock", text: "ROADBLOCK" },
-  { value: "completed", text: "COMPLETED" },
-];
+const statusOptions = computed(() => {
+  const selection = timelineStore.ProjectsInfo.find((item) => item.Title == selectedProject.value);
+  return selection && selection.status
+    ? selection.status.split(",").map((item) => ({
+        value: item.split("#")[0],
+        text: item.split("#")[0],
+        color: "#" + item.split("#")[1],
+      }))
+    : [];
+});
 
 const statusEditParams = ref({
   params: {
@@ -290,25 +261,76 @@ const statusEditParams = ref({
   },
 });
 
+const assignerOptions = computed(() => {
+  const selection = timelineStore.ProjectsInfo.find((item) => item.Title == selectedProject.value);
+  return selection && selection.members
+    ? selection.members.split(",").map((item) => ({
+        value: item,
+        text: item,
+      }))
+    : [];
+});
+
+const assignedEditParams = ref({
+  params: {
+    dataSource: assignerOptions,
+    fields: { text: "text", value: "value" },
+    allowFiltering: true,
+    popupHeight: "200px",
+  },
+});
+
+const projectOptions = computed(() =>
+  timelineStore.ProjectsInfo.map((project) => project.Title)
+);
+
 function queryTaskbarInfo(args) {
-  switch (args.data.status) {
-    case "completed":
-      args.taskbarBgColor = "green";
-      break;
-    case "roadblock":
-      args.taskbarBgColor = "red";
-      break;
-    case "delayed":
-      args.taskbarBgColor = "yellow";
-      break;
-    case "inprogress":
-      args.taskbarBgColor = "blue";
-      break;
-    default:
-      args.taskbarBgColor = "grey";
-  }
+  const info = timelineStore.ProjectsInfo.find((item) => (item.Title == selectedProject));
+
+  if (!info) return args.taskbarBgColor = "#666";
+
+  const selectionStatus = info.status.split(",");
+
+  const temp = selectionStatus.find((item) => item.split("#")[0] == args.data.status);
+
+  args.taskbarBgColor = "#" + temp.split("#")[1];
 }
 
+onMounted(() => {
+  loading.value = true;
+
+  const fields1 = [
+    "ID",
+    "project_name",
+    "phase",
+    "task",
+    "sub_task",
+    "assigned_to",
+    "dependency",
+    "start_date",
+    "deadline_date",
+    "duration",
+    "passed_days",
+    "left_days",
+    "timeline_progress",
+    "status",
+  ];
+
+  getAllItems("Tasks", fields1).then((res) => {
+    const normalized = res.map(normalizeGanttDates);
+    timelineStore.setList(normalized);
+    loading.value = false;
+  });
+
+  const fields2 = ["ID", "Title", "phases", "members", "status"];
+
+  getItem("Projects", fields2).then((res) => {
+    timelineStore.setProjects(res);
+    if (res.length > 0) {
+      selectedProject.value = res[0].Title;
+    }
+  });
+});
 </script>
 
 <template>
@@ -321,7 +343,6 @@ function queryTaskbarInfo(args) {
         <q-card class="import-card">
           <q-card-section>
             <div class="text-h6 q-mb-sm">Import Timeline from Excel</div>
-            
             <div class="row q-gutter-md items-center">
               <q-file
                 ref="fileInput"
@@ -337,7 +358,7 @@ function queryTaskbarInfo(args) {
                   <q-icon name="upload_file" />
                 </template>
               </q-file>
-              
+
               <q-btn
                 v-if="isImporting"
                 color="primary"
@@ -346,19 +367,26 @@ function queryTaskbarInfo(args) {
                 class="col-auto"
               />
             </div>
-            
+
             <div v-if="isImporting" class="q-mt-sm">
-              <q-linear-progress
-                :value="importProgress / 100"
-                color="primary"
-                class="q-mb-xs"
-              />
-              <div class="text-caption">
-                Imported {{ importCurrent }} of {{ importTotal }} items
-              </div>
+              <q-linear-progress :value="importProgress / 100" color="primary" class="q-mb-xs" />
+              <div class="text-caption">Imported {{ importCurrent }} of {{ importTotal }} items</div>
             </div>
           </q-card-section>
         </q-card>
+      </div>
+      <div style="margin: 5px 0px">
+        <q-select
+          v-model="selectedProject"
+          :options="projectOptions"
+          dense
+          outlined
+          style="width: 70%"
+          emit-value
+          map-options
+          :clearable="true"
+        />
+        {{ console.log({a:timelineStore.ProjectsInfo,b:projectOptions}) }}
       </div>
       <GanttComponent
         :dataSource="ganttData"
@@ -369,7 +397,6 @@ function queryTaskbarInfo(args) {
         :editSettings="editSettings"
         :labelSettings="labelSettings"
         :splitterSettings="splitterSettings"
-        :toolbar="toolbar"
         :allowSelection="allowSelection"
         :highlightWeekends="true"
         :taskbarHeight="30"
@@ -379,30 +406,17 @@ function queryTaskbarInfo(args) {
         :taskbarRendering="taskbarRendering"
       >
         <ColumnsDirective>
-          <ColumnDirective
-            field="ID"
-            headerText="Task ID"
-            width="70"
-            textAlign="Right"
-          ></ColumnDirective>
-          <ColumnDirective
-            field="Title"
-            headerText="Task Name"
-            textAlign="Left"
-            width="200"
-          ></ColumnDirective>
+          <ColumnDirective field="ID" headerText="Task ID" width="70" textAlign="Right"></ColumnDirective>
+          <ColumnDirective field="sub_task" headerText="Task Name" textAlign="Left" width="200"></ColumnDirective>
           <ColumnDirective
             field="assigned_to"
             headerText="Assigned To"
             textAlign="Left"
             width="100"
+            editType="dropdownedit"
+            :edit="assignedEditParams"
           ></ColumnDirective>
-          <ColumnDirective
-            field="dependency"
-            headerText="Dependency"
-            textAlign="Left"
-            width="100"
-          ></ColumnDirective>
+          <ColumnDirective field="dependency" headerText="Dependency" textAlign="Left" width="100"></ColumnDirective>
           <ColumnDirective
             field="start_date"
             headerText="Start Date"
@@ -419,12 +433,7 @@ function queryTaskbarInfo(args) {
             format="dd-MM-yy"
             width="150"
           ></ColumnDirective>
-          <ColumnDirective
-            field="duration"
-            headerText="Duration"
-            textAlign="Left"
-            width="100"
-          ></ColumnDirective>
+          <ColumnDirective field="duration" headerText="Duration" textAlign="Left" width="100"></ColumnDirective>
           <ColumnDirective
             field="passed_days"
             headerText="Days Passed From Start Date"
@@ -471,7 +480,7 @@ function queryTaskbarInfo(args) {
     background: #f8f9fa;
     border: 2px dashed #dee2e6;
     border-radius: 8px;
-    
+
     &:hover {
       border-color: #007bff;
       background: #f0f8ff;

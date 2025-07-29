@@ -111,7 +111,7 @@ function addProject() {
   const name = newProjectName.value.trim();
   if (!name || projectStore.setups.map((project) => project.Title).includes(name)) return;
   projectStore.setLoading(true);
-  addItem("Projects", { Title: name })
+  addItem("Projects", { Title: name, status: "Open#666666" })
     .then((res) => {
       projectStore.addProject({
         ID: res.ID,
