@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted, watch, computed } from "vue";
 import * as XLSX from "xlsx";
+import { useQuasar } from "quasar";
 
 import { useTaskStore } from "../store";
 import { addItem } from "../actions/addItem";
@@ -11,6 +12,42 @@ import { getAllItems } from "../actions/getAllItem";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 
 const taskStore = useTaskStore();
+const $q = useQuasar();
+
+// Notification functions
+const showSuccessNotification = (message, icon = "check_circle") => {
+  $q.notify({
+    type: "positive",
+    message: message,
+    icon: icon,
+    position: "top-right",
+    timeout: 3000,
+    actions: [
+      {
+        label: "Dismiss",
+        color: "white",
+        handler: () => {},
+      },
+    ],
+  });
+};
+
+const showErrorNotification = (message, icon = "error") => {
+  $q.notify({
+    type: "negative",
+    message: message,
+    icon: icon,
+    position: "top-right",
+    timeout: 5000,
+    actions: [
+      {
+        label: "Dismiss",
+        color: "white",
+        handler: () => {},
+      },
+    ],
+  });
+};
 
 const searchText = ref("");
 
@@ -51,14 +88,24 @@ const handleFileUpload = async (event) => {
       (t) => t.project_name.trim() && t.phase.trim() && t.task.trim() && t.sub_task.trim()
     );
 
+    if (validTasks.length === 0) {
+      showErrorNotification("No valid tasks found in the Excel file. Please check the file format.");
+      return;
+    }
+
     importTotal.value = validTasks.length;
     importCurrent.value = 0;
+    let successCount = 0;
+    let errorCount = 0;
 
     for (let i = 0; i < validTasks.length; i++) {
       const task = validTasks[i];
+      task.timeline_progress = 0;
+      task.status = "Open";
       try {
         const res = await addItem("Tasks", task);
         taskStore.addTask({ ...task, ID: res.ID });
+        successCount++;
 
         importCurrent.value = i + 1;
         importProgress.value = Math.round((importCurrent.value / importTotal.value) * 100);
@@ -66,12 +113,29 @@ const handleFileUpload = async (event) => {
         await new Promise((resolve) => setTimeout(resolve, 100));
       } catch (error) {
         console.error("Failed to add task:", task, error);
+        errorCount++;
       }
     }
 
     event.target.value = "";
+
+    // Show success notification with details
+    if (successCount > 0) {
+      const message = `Successfully imported ${successCount} task${successCount > 1 ? "s" : ""}`;
+      if (errorCount > 0) {
+        showSuccessNotification(
+          `${message}. ${errorCount} task${errorCount > 1 ? "s" : ""} failed to import.`,
+          "warning"
+        );
+      } else {
+        showSuccessNotification(message, "file_download");
+      }
+    } else {
+      showErrorNotification("Failed to import any tasks. Please check the file format and try again.");
+    }
   } catch (error) {
     console.error("Error importing file:", error);
+    showErrorNotification("Error importing Excel file. Please check the file format and try again.");
   } finally {
     setTimeout(() => {
       isImporting.value = false;
@@ -151,6 +215,8 @@ const addNewRow = () => {
     description: "",
     groups: "",
     architecture: "",
+    timeline_progress: 0,
+    status: "Open",
   };
 };
 
@@ -159,6 +225,7 @@ async function saveNewTask() {
   if (!isRowValid(newTask.value)) return;
 
   miniLoading.value = true;
+
   try {
     const res = await addItem("Tasks", newTask.value);
     taskStore.addTask({
@@ -167,6 +234,12 @@ async function saveNewTask() {
     });
     showAddForm.value = false;
     newConfirmState.value = false;
+
+    // Show success notification
+    showSuccessNotification("Task added successfully!", "add_circle");
+  } catch (error) {
+    console.error("Failed to add task:", error);
+    showErrorNotification("Failed to add task. Please try again.");
   } finally {
     await new Promise((resolve) => setTimeout(resolve, 500));
     miniLoading.value = false;
@@ -202,9 +275,39 @@ const deleteCheckedRows = () => {
 
   if (checkedTaskIds.length === 0) return;
 
-  deleteItem("Tasks", checkedTaskIds).then((res) => {
-    taskStore.deleteTasks(checkedTaskIds);
-    checkedNodes.value = []; // Clear selection after deletion
+  // Show confirmation dialog
+  $q.dialog({
+    title: "Confirm Deletion",
+    message: `Are you sure you want to delete ${checkedTaskIds.length} selected task${
+      checkedTaskIds.length > 1 ? "s" : ""
+    }? This action cannot be undone.`,
+    cancel: true,
+    persistent: true,
+    ok: {
+      label: "Delete",
+      color: "negative",
+      flat: true,
+    },
+    cancel: {
+      label: "Cancel",
+      color: "grey",
+      flat: true,
+    },
+  }).onOk(() => {
+    // Proceed with deletion
+    deleteItem("Tasks", checkedTaskIds)
+      .then((res) => {
+        taskStore.deleteTasks(checkedTaskIds);
+        checkedNodes.value = []; // Clear selection after deletion
+
+        // Show success notification
+        const count = checkedTaskIds.length;
+        showSuccessNotification(`Successfully deleted ${count} task${count > 1 ? "s" : ""}!`, "delete_sweep");
+      })
+      .catch((error) => {
+        console.error("Failed to delete tasks:", error);
+        showErrorNotification("Failed to delete tasks. Please try again.");
+      });
   });
 };
 
@@ -668,7 +771,7 @@ const isNodeMatchingSearch = (node) => {
           style="background: #f0f8ff; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #e3f2fd"
         >
           <div class="text-h6 q-mb-sm" style="color: #1976d2">
-            <q-icon name="file_download" class="q-mr-sm" />
+            <q-icon name="file_upload" class="q-mr-sm" />
             Importing Excel Data...
           </div>
           <div class="q-mb-sm">

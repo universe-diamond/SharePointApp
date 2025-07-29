@@ -256,13 +256,10 @@ export const useNoteStore = defineStore("note", {
       this.noteList.unshift(payload);
     },
     editNote(payload) {
-      console.log("111", payload);
       console.log(this.noteList);
       const editedNote = this.noteList.find((item) => item.ID == payload.ID);
-      console.log("222", editedNote);
       editedNote.content = payload.content;
       editedNote.updated_date = payload.updated_date;
-      console.log("333", this.noteList);
     },
     setLoading(val) {
       this.loading = val;
@@ -273,10 +270,15 @@ export const useNoteStore = defineStore("note", {
 export const useTimelineStore = defineStore("timeline", {
   state: () => ({
     timelineList: [],
+    ProjectsInfo: [],
+    currentProject: {},
   }),
   actions: {
     setList(payload) {
       this.timelineList = payload;
+    },
+    setProjects(payload) {
+      this.ProjectsInfo = payload;
     },
     addLine(payload) {
       this.timelineList.push(payload);
@@ -297,6 +299,9 @@ export const useSunburstStore = defineStore("sunburst", {
   actions: {
     setTaskData(payload) {
       this.taskData = payload;
+    },
+    addTask(payload) {
+      this.taskData.push(payload);
     },
   },
 });
