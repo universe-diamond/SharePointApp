@@ -21,7 +21,6 @@ const currentRoot = ref(null);
 const chartHistory = ref([]);
 // Add hold functionality state
 const heldSegments = ref(new Set());
-const isHoldMode = ref(false);
 
 // Add loading state
 const isLoading = ref(true);
