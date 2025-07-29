@@ -1,138 +1,3 @@
-<script setup>
-import { ref, computed, onMounted } from "vue";
-import SunburstChart from "../Charts/Sunburst.vue";
-import { useTaskStore, useSunburstStore } from "../../store";
-import { addItem } from "../../actions/addItem";
-import { getItem } from "../../actions/getItem";
-
-const props = defineProps({
-  baseInfo: Array,
-  selectedProject: String,
-});
-
-const taskStore = useTaskStore();
-const sunburstStore = useSunburstStore();
-
-const isFullscreen = ref(false);
-const showAddTaskCard = ref(false);
-const newConfirmState = ref(false);
-const miniLoading = ref(false);
-
-const newTask = ref({
-  project_name: "",
-  phase: "",
-  task: "",
-  sub_task: "",
-  description: "",
-  groups: "",
-  architecture: "",
-  timeline_progress: 0,
-  status: "",
-});
-
-const selectedNodeInfo = computed(() => {
-  if (props.selectedProject) {
-    newTask.value.project_name = props.selectedProject;
-  }
-  return { name: props.selectedProject || "Add Task" };
-});
-
-const phaseOptions = computed(() => {
-  const project = taskStore.projectList.find((p) => p.Title === newTask.value.project_name);
-  if (!project || !project.phases) return [];
-  return project.phases.split(",").map((phase) => ({
-    label: phase.trim(),
-    value: phase.trim(),
-  }));
-});
-
-const taskOptions = computed(() => {
-  const uniqueTasks = [
-    ...new Set(
-      sunburstStore.taskData
-        .filter((task) => task.project_name == newTask.value.project_name && task.phase == newTask.value.phase)
-        .map((task) => task.task)
-        .filter((task) => task && task.trim())
-    ),
-  ];
-  return uniqueTasks.map((task) => ({
-    label: task,
-    value: task,
-  }));
-});
-
-function isFieldInvalid(field, record) {
-  return ["phase", "task", "sub_task"].includes(field) && (!record[field] || record[field].trim() === "");
-}
-
-function isRowValid(record) {
-  return ["phase", "task", "sub_task"].every((f) => record[f] && record[f].trim() !== "");
-}
-
-function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value;
-  if (isFullscreen.value) {
-    document.body.style.overflow = "hidden";
-  } else {
-    document.body.style.overflow = "";
-  }
-}
-
-function toggleAddTaskCard() {
-  showAddTaskCard.value = !showAddTaskCard.value;
-  if (showAddTaskCard.value) {
-    newTask.value = {
-      project_name: props.selectedProject,
-      phase: "",
-      task: "",
-      sub_task: "",
-      description: "",
-      groups: "",
-      architecture: "",
-      timeline_progress: 0,
-      status: "Open",
-    };
-    newConfirmState.value = false;
-  }
-}
-
-function closeInfoCard() {
-  showAddTaskCard.value = false;
-}
-
-async function saveNewTask() {
-  newConfirmState.value = true;
-  if (!isRowValid(newTask.value)) return;
-
-  miniLoading.value = true;
-
-  try {
-    const res = await addItem("Tasks", newTask.value);
-    sunburstStore.addTask({
-      ...newTask.value,
-      ID: res.ID,
-    });
-    showAddTaskCard.value = false;
-    newConfirmState.value = false;
-  } finally {
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    miniLoading.value = false;
-  }
-}
-
-function cancelNewTask() {
-  showAddTaskCard.value = false;
-  newConfirmState.value = false;
-}
-
-onMounted(() => {
-  const fields = ["ID", "Title", "phases"];
-  getItem("Projects", fields).then((res) => {
-    taskStore.setProjects(res);
-  });
-});
-</script>
-
 <template>
   <div :class="['sunburst-card', { fullscreen: isFullscreen }]">
     <button class="fullscreen-btn" @click="toggleFullscreen">
@@ -142,6 +7,7 @@ onMounted(() => {
     <button class="addtask-btn" @click="toggleAddTaskCard">+</button>
     <SunburstChart
       :baseInfo="props.baseInfo"
+      :baseStatus="props.baseStatus"
       :selectedProject="selectedProject"
       component-id="chartId"
       :class="{ 'fullscreen-chart': isFullscreen }"
@@ -218,6 +84,123 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<script setup>
+import { ref, computed, onMounted } from "vue";
+import SunburstChart from "../Charts/Sunburst.vue";
+import { useTaskStore } from "../../store";
+import { addItem } from "../../actions/addItem";
+import { getItem } from "../../actions/getItem";
+
+const props = defineProps({
+  baseInfo: Array,
+  selectedProject: String,
+});
+
+const taskStore = useTaskStore();
+
+const isFullscreen = ref(false);
+const showAddTaskCard = ref(false);
+const newConfirmState = ref(false);
+const miniLoading = ref(false);
+
+const newTask = ref({
+  project_name: "",
+  phase: "",
+  task: "",
+  sub_task: "",
+  description: "",
+  groups: "",
+  architecture: "",
+});
+
+// Set the project name from the selected project prop
+const selectedNodeInfo = computed(() => {
+  if (props.selectedProject) {
+    newTask.value.project_name = props.selectedProject;
+  }
+  return { name: props.selectedProject || "Add Task" };
+});
+
+const phaseOptions = computed(() => {
+  const project = taskStore.projectList.find((p) => p.Title === newTask.value.project_name);
+  if (!project || !project.phases) return [];
+  return project.phases.split(",").map((phase) => ({
+    label: phase.trim(),
+    value: phase.trim(),
+  }));
+});
+
+function isFieldInvalid(field, record) {
+  return ["phase", "task", "sub_task"].includes(field) && (!record[field] || record[field].trim() === "");
+}
+
+function isRowValid(record) {
+  return ["phase", "task", "sub_task"].every((f) => record[f] && record[f].trim() !== "");
+}
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value;
+  if (isFullscreen.value) {
+    document.body.style.overflow = "hidden";
+  } else {
+    document.body.style.overflow = "";
+  }
+}
+
+function toggleAddTaskCard() {
+  showAddTaskCard.value = !showAddTaskCard.value;
+  if (showAddTaskCard.value) {
+    // Reset form when opening
+    newTask.value = {
+      project_name: props.selectedProject || "",
+      phase: "",
+      task: "",
+      sub_task: "",
+      description: "",
+      groups: "",
+      architecture: "",
+    };
+    newConfirmState.value = false;
+  }
+}
+
+function closeInfoCard() {
+  showAddTaskCard.value = false;
+}
+
+async function saveNewTask() {
+  newConfirmState.value = true;
+  if (!isRowValid(newTask.value)) return;
+
+  miniLoading.value = true;
+  try {
+    const res = await addItem("Tasks", newTask.value);
+    taskStore.addTask({
+      ...newTask.value,
+      ID: res.ID,
+    });
+    showAddTaskCard.value = false;
+    newConfirmState.value = false;
+  } finally {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    miniLoading.value = false;
+  }
+}
+
+function cancelNewTask() {
+  showAddTaskCard.value = false;
+  newConfirmState.value = false;
+}
+
+// Load projects when component mounts
+onMounted(() => {
+  const fields = ["ID", "Title", "phases"];
+  getItem("Projects", fields).then((res) => {
+    taskStore.setProjects(res);
+  });
+});
+</script>
 
 <style scoped>
 .sunburst-card {

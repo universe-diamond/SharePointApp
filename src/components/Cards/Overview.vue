@@ -91,7 +91,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject" />
+            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject" :baseStatus="baseStatus" />
           </q-card-section>
         </q-card>
       </div>
