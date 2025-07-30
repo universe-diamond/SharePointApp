@@ -14,6 +14,11 @@ const props = defineProps({
   selectedProject: String,
 });
 
+console.log("123123123", props)
+
+
+console.log(props)
+
 const height = ref("100%");
 const legendItems = ref([]);
 const chartContainer = ref(null);
@@ -21,6 +26,7 @@ const currentRoot = ref(null);
 const chartHistory = ref([]);
 // Add hold functionality state
 const heldSegments = ref(new Set());
+const isHoldMode = ref(false);
 
 // Add loading state
 const isLoading = ref(true);
@@ -729,7 +735,6 @@ function createLegendItems() {
   if (chartData.value.children) {
     const colorScale = d3.scaleOrdinal(d3.quantize(d3.interpolateRainbow, chartData.value.children.length + 1));
     chartData.value.children.forEach((child) => {
-      console.log({ child });
       items.push({
         key: child.name,
         name: child.name,

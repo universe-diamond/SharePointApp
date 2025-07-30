@@ -17,7 +17,6 @@ const props = defineProps({
 });
 
 const seriesData = ref([]);
-const planData = ref([]);
 const taskData = ref([]);
 const isLoading = ref(true);
 
@@ -48,15 +47,16 @@ const markerSettingsPassed = {
   },
 };
 
-// Load data on mount
 onMounted(() => {
-  const fields1 = [
+  const fields = [
     "ID",
-    "Title",
+    "project_name",
+    "phase",
+    "task",
+    "sub_task",
     "assigned_to",
     "dependency",
     "start_date",
-    "end_date",
     "deadline_date",
     "duration",
     "passed_days",
@@ -64,16 +64,10 @@ onMounted(() => {
     "timeline_progress",
     "status",
   ];
-  const fields2 = ["ID", "project_name", "phase", "task", "sub_task"];
-
-  getItem("Plans", fields1).then((res) => {
-    planData.value = res;
-  });
-  getAllItems("Tasks", fields2).then((res) => {
+  getAllItems("Tasks", fields).then((res) => {
     taskData.value = res;
   });
 
-  // Fallback timeout to hide loading if data doesn't load within 8 seconds
   setTimeout(() => {
     if (isLoading.value) {
       isLoading.value = false;
@@ -82,23 +76,20 @@ onMounted(() => {
   }, 8000);
 });
 
-// Watch for selected project changes and data availability
 watch(
-  [() => props.selectedProject, planData, taskData],
-  ([project, plans, tasks]) => {
-    if (project && plans.length > 0 && tasks.length > 0) {
-      processProjectTimeline();
+  [() => props.selectedProject, taskData],
+  ([project, tasks]) => {
+    if (project && tasks.length > 0) {
+      processProjectTimeline(tasks.filter((item) => item.project_name == project));
       isLoading.value = false;
     }
   },
-  { deep: true }
+  { immediate: true, deep: true }
 );
 
 // Function to process project timeline data
-const processProjectTimeline = () => {
-  const plans = planData.value;
-  const tasks = taskData.value;
-  const selectedProject = props.selectedProject;
+const processProjectTimeline = (taskArray) => {
+  const tasks = taskArray;
 
   const taskToPhaseMap = {};
   tasks.forEach((task) => {
@@ -108,15 +99,15 @@ const processProjectTimeline = () => {
 
   const phaseGroups = {};
 
-  plans.forEach((plan) => {
+  tasks.forEach((task) => {
     let phase;
 
-    if (taskToPhaseMap[plan.Title]) {
-      phase = taskToPhaseMap[plan.Title];
+    if (taskToPhaseMap[task.sub_task]) {
+      phase = taskToPhaseMap[task.sub_task];
       if (!phaseGroups[phase]) {
         phaseGroups[phase] = [];
       }
-      phaseGroups[phase].push(plan);
+      phaseGroups[phase].push(task);
     }
   });
 
@@ -124,22 +115,22 @@ const processProjectTimeline = () => {
   const phaseTimeline = [];
   const today = new Date();
 
-  Object.entries(phaseGroups).forEach(([phase, plans]) => {
-    if (plans.length > 0) {
-      const validPlans = plans.filter((plan) => plan.start_date && plan.deadline_date);
+  Object.entries(phaseGroups).forEach(([phase, tasks]) => {
+    if (tasks.length > 0) {
+      const validPlans = tasks.filter((task) => task.start_date && task.deadline_date);
 
       if (validPlans.length > 0) {
         const startDates = validPlans
-          .map((plan) => {
-            const date = new Date(plan.start_date);
+          .map((task) => {
+            const date = new Date(task.start_date);
             return isNaN(date.getTime()) ? null : date;
           })
           .filter((date) => date !== null);
         const earliestStart = startDates.length > 0 ? new Date(Math.min(...startDates)) : null;
 
         const endDates = validPlans
-          .map((plan) => {
-            const date = new Date(plan.deadline_date);
+          .map((task) => {
+            const date = new Date(task.deadline_date);
             return isNaN(date.getTime()) ? null : date;
           })
           .filter((date) => date !== null);
@@ -166,6 +157,12 @@ const processProjectTimeline = () => {
           project: phase,
           daysPassed: daysPassed,
           daysLeft: daysLeft,
+        });
+      } else {
+        phaseTimeline.push({
+          project: phase,
+          daysPassed: 0,
+          daysLeft: 0,
         });
       }
     }

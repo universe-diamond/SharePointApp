@@ -328,6 +328,8 @@ const pivotColumns4Q = computed(() => {
       :options="projectData.map((p) => p.Title)"
       label="Select Project"
       clearable
+      dense
+      outlined
       class="q-mb-md"
       style="width: 300px"
     />
