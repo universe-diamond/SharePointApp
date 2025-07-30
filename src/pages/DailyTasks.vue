@@ -1,51 +1,81 @@
 <script setup>
-import { ref, onMounted, computed, watch } from "vue";
+import {
+  reactive,
+  ref,
+  onMounted,
+  onBeforeUnmount,
+  nextTick,
+  computed,
+  watch
+} from "vue";
 import draggable from "vuedraggable";
 
 import { useDailytaskStore } from "../store";
 import { getItem } from "../actions/getItem";
+import { addItem } from "../actions/addItem";
+import { deleteItem } from "../actions/deleteItem";
 import { editItem } from "../actions/editItem";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 
 const dailytaskStore = useDailytaskStore();
-const projectOptions = ref([]);
 
+const boardTitleInputs = ref([]);
 const selectedDate = ref(new Date().toISOString().substr(0, 10));
-const selectedProject = ref("");
+
+const defaultColumns = [
+  {
+    id: "todo",
+    title: "TO DO",
+    editing: false,
+    tasks: [],
+    showingAddTask: false,
+    selectedTaskId: "",
+    menu: false,
+  },
+  {
+    id: "inprogress",
+    title: "IN PROGRESS",
+    editing: false,
+    tasks: [],
+    showingAddTask: false,
+    selectedTaskId: "",
+    menu: false,
+  },
+  {
+    id: "done",
+    title: "DONE",
+    editing: false,
+    tasks: [],
+    showingAddTask: false,
+    selectedTaskId: "",
+    menu: false,
+  },
+];
+
+const columns = reactive([]);
+
+const availableSubtasks = ref([]);
 
 const dragInfo = ref(null);
 const loading = ref(true);
-const miniLoading = ref({});
-const showDailyTasks = ref(false);
+const miniLoading = ref({}); // { [colId]: boolean } for per-board mini spinners
 
 onMounted(async () => {
   loading.value = true;
-  const fields1 = [
-    "ID",
-    "project_name",
-    "phase",
-    "task",
-    "sub_task",
-    "assigned_to",
-    "dependency",
-    "start_date",
-    "deadline_date",
-    "duration",
-    "passed_days",
-    "left_days",
-    "timeline_progress",
-    "status",
-  ];
-  const fields2 = ["ID", "Title", "phases", "members", "status", "key_IDs", "months", "years", "note_types"];
-
+  const fields1 = ["ID", "date", "task_ids"];
+  const fields2 = ["ID", "project_name", "phase", "task", "sub_task"];
+  const fields3 = ["ID", "Title", "date", "board", "task_ids"];
   await Promise.all([
-    getItem("Tasks", fields1).then((res) => {
+    getItem("Schedules", fields1).then(res => {
+      dailytaskStore.setSchedule(res);
+    }),
+    getItem("Tasks", fields2).then(res => {
       dailytaskStore.setAllTasks(res);
     }),
-    getItem("Projects", fields2).then((res) => {
-      projectOptions.value = res;
-    }),
-  ]);
+    getItem("Boards", fields3).then(res => {
+      dailytaskStore.setAllBoards(res);
+    })
+  ])
 
   if (selectedDate.value) {
     watchCallback(selectedDate.value);
@@ -54,70 +84,216 @@ onMounted(async () => {
 });
 
 watch(
+  () => dailytaskStore.availableTasks,
+  (source) => {
+    availableSubtasks.value = source
+  },
+  {immediate: true, deep: true}
+)
+
+watch(
   () => selectedDate.value,
   (source) => {
     watchCallback(source);
   },
-  { immediate: true, deep: true }
-);
+  {immediate: true, deep: true}
+)
 
-function watchCallback(source) {}
+function watchCallback(source) {
+  const scheduleItem = dailytaskStore.schedule.find(item => item.date.includes(source));
+  if (scheduleItem) {
+    const IDarr = scheduleItem.task_ids.split(',');
+    const taskArr = IDarr.map(item => dailytaskStore.allTasks.find(each => each.ID == item).task);
+    dailytaskStore.setAvailableTasks(taskArr);
+  } else {
 
-function isTaskOnSelectedDate(task) {
-  if (!task.start_date || !task.duration) return false;
-  const start = new Date(task.start_date);
-  const duration = parseInt(task.duration) || 0;
-  const end = new Date(start);
-  end.setDate(start.getDate() + duration);
-  const selected = new Date(selectedDate.value);
-  return selected >= start && selected <= end;
+  }
+
+  if(dailytaskStore.allBoards.length != 0) {
+    if(!dailytaskStore.allBoards.find(item => item.date.includes(source))) {
+      Promise.all(
+        defaultColumns.map(column => {
+          return addItem("Boards", {date: source, board: column.title, task_ids: ''}).then(res => {
+            dailytaskStore.addBoard({ID: res.ID, date: source, board: column.title, task_ids: []})
+          })
+        })
+      ).then(() => {
+        const defaultOrder = defaultColumns.map(col => col.title);
+        const newColumns = dailytaskStore.allBoards
+          .filter(item => item.date.includes(source))
+          .map(item => {
+            return {
+              id: item.ID,
+              title: item.board,
+              editing: false,
+              tasks: Array.isArray(item.task_ids)
+                ? item.task_ids
+                : (item.task_ids ? item.task_ids.split(',').filter(Boolean).map(id => {
+                    const task = dailytaskStore.allTasks.find(t => t.ID == id);
+                    return task ? { id: task.ID, title: task.sub_task, code: task.phase } : { id };
+                  }) : []),
+              showingAddTask: false,
+              selectedTaskId: "",
+              menu: false
+            }
+          })
+          .sort((a, b) => defaultOrder.indexOf(a.title) - defaultOrder.indexOf(b.title));
+        columns.splice(0, columns.length, ...newColumns);
+      })
+    } else {
+      const defaultOrder = defaultColumns.map(col => col.title);
+      const newColumns = dailytaskStore.allBoards
+        .filter(item => item.date.includes(source))
+        .map(item => {
+          return {
+            id: item.ID,
+            title: item.board,
+            editing: false,
+            tasks: Array.isArray(item.task_ids)
+              ? item.task_ids
+              : (item.task_ids ? item.task_ids.split(',').filter(Boolean).map(id => {
+                  const task = dailytaskStore.allTasks.find(t => t.ID == id);
+                  return task ? { id: task.ID, title: task.sub_task, code: task.phase } : { id };
+                }) : []),
+            showingAddTask: false,
+            selectedTaskId: "",
+            menu: false
+          }
+        })
+        .sort((a, b) => defaultOrder.indexOf(a.title) - defaultOrder.indexOf(b.title));
+      columns.splice(0, columns.length, ...newColumns);
+    }
+  }
 }
 
-const columns = computed(() => {
-  if (!selectedProject.value) return [];
+const availableTasks = computed(() => {
+  const usedIds = new Set();
+  columns.forEach((col) => {
+    col.tasks.forEach((task) => usedIds.add(task.id));
+  });
+  return availableSubtasks.value.filter((task) => !usedIds.has(task.id));
+});
 
-  // Get the statuses for the selected project
-  const projectStatuses = getProjectStatuses();
-
-  // Get all tasks for the selected project
-  const projectTasks = dailytaskStore.allTasks.filter((task) => task.project_name === selectedProject.value);
-
-  // Create columns based on project statuses
-  return projectStatuses.map((status, index) => {
-    // Filter tasks for this specific status
-    let statusTasks = projectTasks.filter((task) => {
-      if (!task.status) return false;
-      const match = task.status.match(/^([^#]+)/);
-      const taskStatusName = match ? match[1].trim() : task.status;
-      return taskStatusName === status.name;
-    });
-    if (showDailyTasks.value) {
-      statusTasks = statusTasks.filter(isTaskOnSelectedDate);
-    }
-
-    return {
-      id: `status-${index}`,
-      title: status.name,
+function addBoard() {
+  loading.value = true;
+  addItem("Boards", {date: selectedDate.value, board: "New Board", task_ids: ''}).then(res => {
+    dailytaskStore.addBoard({ID: res.ID, date: selectedDate.value, board: "New Board", task_ids: []});
+    columns.push({
+      id: res.ID,
+      title: "New Board",
       editing: false,
-      tasks: statusTasks.map((task) => ({
-        id: task.ID,
-        title: task.sub_task,
-        code: task.ID,
-      })),
+      tasks: [],
       showingAddTask: false,
       selectedTaskId: "",
       menu: false,
-    };
+    });
+  }).finally(() => {
+    loading.value = false;
   });
+}
+function deleteBoard(colIdx) {
+  if (columns.length > 1) {
+    const colId = columns[colIdx].id;
+    miniLoading.value[colId] = true;
+    deleteItem("Boards", [colId]).then(res => {
+      columns.splice(colIdx, 1);
+    }).finally(() => {
+      miniLoading.value[colId] = false;
+    });
+  }
+}
+
+function saveBoardTitle(colIdx) {
+  columns[colIdx].editing = false;
+}
+
+function startEditTitle(colIdx) {
+  columns[colIdx].editing = true;
+  nextTick(() => {
+    const input = boardTitleInputs.value[colIdx];
+    if (input) {
+      input.focus();
+      input.select();
+    }
+  });
+}
+
+function toggleAddTask(colIdx) {
+  columns[colIdx].showingAddTask = !columns[colIdx].showingAddTask;
+  if (columns[colIdx].showingAddTask) {
+    columns[colIdx].selectedTaskId = availableTasks.value.length
+      ? availableTasks.value[0].id
+      : "";
+  }
+}
+
+function confirmAddTask(colIdx) {
+  if (!columns[colIdx].selectedTaskId) return;
+
+  const task = availableSubtasks.value.find((t) => t.id === columns[colIdx].selectedTaskId);
+  if (task) {
+    const exists = columns[colIdx].tasks.some((t) => t.id === task.id);
+    if (!exists) {
+      columns[colIdx].tasks.push({
+        ...task,
+      });
+      const colId = columns[colIdx].id;
+      miniLoading.value[colId] = true;
+      editItem("Boards", colId, { task_ids: columns[colIdx].tasks.map(item => item.id).join(',') })
+        .then(res => {
+          dailytaskStore.updateBoard(colId, columns[colIdx].tasks.map(item => item.id))
+        })
+        .finally(() => {
+          miniLoading.value[colId] = false;
+        });
+    }
+  }
+
+  columns[colIdx].showingAddTask = false;
+  columns[colIdx].selectedTaskId = "";
+}
+
+function cancelAddTask(colIdx) {
+  columns[colIdx].showingAddTask = false;
+  columns[colIdx].selectedTaskId = "";
+}
+
+function deleteTask(colIdx, taskIdx) {
+  const colId = columns[colIdx].id;
+  miniLoading.value[colId] = true;
+  columns[colIdx].tasks.splice(taskIdx, 1);
+  editItem("Boards", colId, { task_ids: columns[colIdx].tasks.map(item => item.id).join(',') }).then(res => {
+    dailytaskStore.updateBoard(colId, columns[colIdx].tasks.map(item => item.id));
+  }).finally(() => {
+    miniLoading.value[colId] = false;
+  });
+}
+
+function handleClickOutside(event) {
+  columns.forEach((col, colIdx) => {
+    if (col.editing) {
+      const input = document.querySelectorAll(".kanban-title-input")[colIdx];
+      if (input && !input.contains(event.target)) {
+        saveBoardTitle(colIdx);
+      }
+    }
+  });
+}
+
+onMounted(() => {
+  document.addEventListener("mousedown", handleClickOutside);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("mousedown", handleClickOutside);
 });
 
 function onDragStart(originColIdx) {
   return (event) => {
     dragInfo.value = {
       originColIdx,
-      originBoard: columns.value[originColIdx],
+      originBoard: columns[originColIdx],
       originTaskIdx: event.oldIndex,
-      task: columns.value[originColIdx].tasks[event.oldIndex],
+      task: columns[originColIdx].tasks[event.oldIndex]
     };
   };
 }
@@ -125,13 +301,13 @@ function onTaskAdd(destColIdx) {
   return (event) => {
     const origin = dragInfo.value;
 
-    dailytaskStore.updateTask(origin.task.id, {
-      status: columns.value[destColIdx].title,
-    });
+    editItem("Boards", columns[origin?.originColIdx].id, {task_ids: columns[origin?.originColIdx].tasks.map(item => item.id).join(',')}).then(res => {
+      dailytaskStore.updateBoard(columns[origin?.originColIdx].id, columns[origin?.originColIdx].tasks.map(item => item.id));
+    })
 
-    editItem("Tasks", origin.task.id, {
-      status: columns.value[destColIdx].title,
-    });
+    editItem("Boards", columns[destColIdx].id, {task_ids: columns[destColIdx].tasks.map(item => item.id).join(',')}).then(res => {
+      dailytaskStore.updateBoard(columns[destColIdx].id, columns[destColIdx].tasks.map(item => item.id));
+    })
   };
 }
 function onDragEnd(destColIdx) {
@@ -139,101 +315,88 @@ function onDragEnd(destColIdx) {
     dragInfo.value = null;
   };
 }
-
-// Get all unique statuses for the selected project
-function getProjectStatuses() {
-  if (!selectedProject.value) return [];
-  // Find the selected project in projectOptions
-  const project = projectOptions.value.find((p) => p.Title === selectedProject.value);
-  if (!project || !project.status) return [];
-  // Statuses are stored as comma-separated strings like 'In Progress#FFAA00,Completed#00FF00'
-  return project.status
-    .split(",")
-    .map((s) => s.trim())
-    .map((s) => {
-      const [name, color] = s.split("#");
-      return { name: name.trim(), color: color ? "#" + color.trim() : "#666" };
-    });
-}
-
-// Get status summary for the selected project
-function getProjectStatusSummary() {
-  if (!selectedProject.value) return {};
-  // Find all tasks for the selected project
-  const projectTasks = dailytaskStore.allTasks.filter((task) => task.project_name === selectedProject.value);
-  const statusCount = {};
-  projectTasks.forEach((task) => {
-    if (task.status) {
-      // Extract status name (before # if present)
-      const match = task.status.match(/^([^#]+)/);
-      const statusName = match ? match[1].trim() : task.status;
-      statusCount[statusName] = (statusCount[statusName] || 0) + 1;
-    }
-  });
-  return statusCount;
-}
-
-// Helper to get color for a status name
-function getStatusColor(statusName) {
-  const statuses = getProjectStatuses();
-  const found = statuses.find((s) => s.name === statusName);
-  return found ? found.color : "#666";
-}
 </script>
 
 <template>
   <LoadingSpinner :showing="loading" text="Loading daily tasks...">
     <q-card class="daily-tasks-body">
       <div class="kanban-header-bar">
-        <div class="daily-project-selects">
-          <select v-model="selectedProject" class="selectbox" :class="{ 'no-project-selected': !selectedProject }">
-            <option value="" disabled>Select project</option>
-            <option v-for="proj in projectOptions" :key="proj.ID" :value="proj.Title">
-              {{ proj.Title }}
-            </option>
-          </select>
-        </div>
-        <div class="kanban-header-actions" style="display: flex; align-items: center; gap: 1rem">
-          <label style="display: flex; align-items: center; gap: 0.5rem; font-weight: 500; margin: 0">
-            <input type="checkbox" v-model="showDailyTasks" /> Daily tasks
-          </label>
-          <input type="date" v-model="selectedDate" class="kanban-datepicker" :disabled="!showDailyTasks" />
+        <button
+          class="kanban-create-btn kanban-create-btn-large"
+          @click="addBoard"
+          :disabled="loading"
+        >
+          <span class="plus">+</span> Add Board
+        </button>
+        <div class="kanban-header-actions">
+          <input type="date" v-model="selectedDate" class="kanban-datepicker" />
         </div>
       </div>
       <div class="kanban-board">
-        <div class="kanban-column" v-for="(column, colIdx) in columns" :key="column.id">
+        <div
+          class="kanban-column"
+          v-for="(column, colIdx) in columns"
+          :key="column.id"
+        >
           <div class="kanban-header">
             <div class="kanban-header-left">
-              <span v-if="!column.editing" class="kanban-title">
-                <span
-                  v-if="selectedProject"
-                  class="status-chip"
-                  :style="{
-                    backgroundColor: getStatusColor(column.title),
-                    color: '#fff',
-                    padding: '2px 10px',
-                    borderRadius: '10px',
-                    fontWeight: 500,
-                    fontSize: '13px',
-                    marginRight: '8px',
-                    display: 'inline-block',
-                  }"
-                >
-                  {{ column.title }}
-                </span>
-                <span v-else>
-                  {{ column.title }}
-                </span>
-              </span>
-              <span v-if="Array.isArray(column.tasks) && column.tasks.length" class="kanban-count">{{
-                column.tasks.length
-              }}</span>
+              <span
+                v-if="!column.editing" class="kanban-title" @dblclick="startEditTitle(colIdx)"
+                >{{ column.title }}</span>
+              <input
+                v-else
+                :ref="el => boardTitleInputs[colIdx] = el"
+                class="kanban-title-input"
+                v-model="column.title"
+                @blur="saveBoardTitle(colIdx)"
+                @keyup.enter="saveBoardTitle(colIdx)"
+                :style="{ width: '210px' }"
+              />
+              <span v-if="Array.isArray(column.tasks) && column.tasks.length" class="kanban-count">{{ column.tasks.length }}</span>
               <q-spinner-pie v-if="miniLoading[column.id]" size="18px" color="primary" class="mini-spinner" />
             </div>
-            <div class="kanban-header-right"></div>
+            <div class="kanban-header-right">
+              <q-btn flat dense round icon="add" @click="toggleAddTask(colIdx)" :disable="miniLoading[column.id]" />
+              <q-btn flat dense round icon="delete" @click="deleteBoard(colIdx)" :disable="miniLoading[column.id]" />
+            </div>
           </div>
 
           <div>
+            <div v-if="column.showingAddTask" class="kanban-add-task-inline">
+              <div class="kanban-add-task-select-row">
+                <select
+                  v-model="column.selectedTaskId"
+                  class="kanban-add-task-select"
+                >
+                  <option value="">Select a task...</option>
+                  <option
+                    v-for="task in availableTasks"
+                    :key="task.id"
+                    :value="task.id"
+                    :title="task.title"
+                  >
+                    {{ task.title.length > 25 ? task.title.slice(0, 25) + '…' : task.title }} ({{ task.code }})
+                  </option>
+                </select>
+              </div>
+              <div class="kanban-add-task-buttons">
+                <button
+                  class="kanban-add-task-confirm-btn"
+                  @click="confirmAddTask(colIdx)"
+                  :disabled="!column.selectedTaskId || miniLoading[column.id]"
+                >
+                  Add
+                </button>
+                <button
+                  class="kanban-add-task-cancel-btn"
+                  @click="cancelAddTask(colIdx)"
+                  :disabled="miniLoading[column.id]"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+
             <draggable
               v-model="column.tasks"
               group="tasks"
@@ -244,10 +407,11 @@ function getStatusColor(statusName) {
               @add="(event) => onTaskAdd(colIdx)(event)"
               @end="(event) => onDragEnd(colIdx)(event)"
             >
-              <template :item="{ element: task, index }">
+              <template #item="{ element: task, index }">
                 <div class="kanban-card">
                   <div class="kanban-card-title-row">
                     <span class="kanban-card-title" :title="task.title">{{ task.title }}</span>
+                    <q-btn flat dense round icon="delete" color="negative" @click="deleteTask(colIdx, index)" :disable="miniLoading[column.id]" />
                   </div>
                   <div class="kanban-card-meta">
                     <span class="kanban-card-id">{{ task.code }}</span>
@@ -255,7 +419,9 @@ function getStatusColor(statusName) {
                 </div>
               </template>
               <template #footer>
-                <div v-if="!column.tasks.length" class="kanban-empty-placeholder">Drop tasks here</div>
+                <div v-if="!column.tasks.length" class="kanban-empty-placeholder">
+                  Drop tasks here
+                </div>
               </template>
             </draggable>
           </div>
@@ -560,31 +726,5 @@ function getStatusColor(statusName) {
 .mini-spinner {
   margin-left: 0.5rem;
   vertical-align: middle;
-}
-.daily-project-selects {
-  display: flex;
-  align-items: center;
-
-  select {
-    width: 320px;
-  }
-}
-.selectbox {
-  padding: 6px 12px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: #f1f5f9;
-  font-size: 15px;
-  margin: 0 10px;
-  transition: border 0.2s;
-  outline: none;
-  &:focus {
-    border: 1.5px solid #6366f1;
-  }
-
-  &.no-project-selected {
-    border-color: #ef4444;
-    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
-  }
 }
 </style>

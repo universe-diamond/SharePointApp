@@ -75,15 +75,13 @@ export const useTaskStore = defineStore("task", {
     },
     editTask(payload) {
       const editedTask = this.taskList.find((item) => item.ID == payload.ID);
-      if (editedTask) {
-        Object.assign(editedTask, payload);
-      }
-    },
-    updateTask(payload) {
-      const index = this.taskList.findIndex((item) => item.ID == payload.ID);
-      if (index !== -1) {
-        this.taskList[index] = { ...this.taskList[index], ...payload };
-      }
+      editedTask.project_name = payload.project_name;
+      editedTask.position = payload.position;
+      editedTask.task = payload.task;
+      editedTask.sub_task = payload.sub_task;
+      editedTask.description = payload.description;
+      editedTask.groups = payload.groups;
+      editedTask.architecture = payload.architecture;
     },
     setLoading(val) {
       this.loading = val;
@@ -124,12 +122,6 @@ export const useDailytaskStore = defineStore("dailytask", {
     updateBoard(id, task_ids) {
       const updated = this.allBoards.find((item) => item.ID == id);
       updated.task_ids = task_ids.join(",");
-    },
-    updateTask(id, data) {
-      this.allTasks = this.allTasks.map((item) => {
-        if (item.ID == id) return { ...item, ...data };
-        return item;
-      });
     },
   },
 });
@@ -176,6 +168,7 @@ export const useScheduleStore = defineStore("schedule", {
     },
     setSelectedPhase(phase) {
       this.selectedPhase = phase;
+      this.updateFilteredTasks();
     },
     setSelectedYear(year) {
       this.selectedYear = year;
@@ -187,12 +180,14 @@ export const useScheduleStore = defineStore("schedule", {
       this.selectedWeek = week;
     },
     updateFilteredTasks() {
-      if (!this.selectedProject) {
+      if (!this.selectedProject || !this.selectedPhase) {
         this.filteredTasks = [];
         return;
       }
 
-      const filtered = this.total.filter((item) => item.project_name === this.selectedProject);
+      const filtered = this.total.filter(
+        (item) => item.project_name === this.selectedProject && item.phase === this.selectedPhase
+      );
 
       this.filteredTasks = [...new Set(filtered.map((item) => item.task))];
     },

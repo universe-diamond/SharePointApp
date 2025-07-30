@@ -253,6 +253,14 @@ onMounted(() => {
         <ColumnsDirective>
           <ColumnDirective field="ID" headerText="Task ID" width="70" textAlign="Right"></ColumnDirective>
           <ColumnDirective field="sub_task" headerText="Task Name" textAlign="Left" width="200"></ColumnDirective>
+          <ColumnDirective
+            field="assigned_to"
+            headerText="Assigned To"
+            textAlign="Left"
+            width="100"
+            editType="dropdownedit"
+            :edit="assignedEditParams"
+          ></ColumnDirective>
           <ColumnDirective field="dependency" headerText="Dependency" textAlign="Left" width="100"></ColumnDirective>
           <ColumnDirective
             field="start_date"
@@ -284,12 +292,10 @@ onMounted(() => {
             width="100"
           ></ColumnDirective>
           <ColumnDirective
-            field="assigned_to"
-            headerText="Assigned To"
+            field="timeline_progress"
+            headerText="Timeline Progress"
             textAlign="Left"
-            width="100"
-            editType="dropdownedit"
-            :edit="assignedEditParams"
+            width="110"
           ></ColumnDirective>
           <ColumnDirective
             field="status"
@@ -299,12 +305,6 @@ onMounted(() => {
             editType="dropdownedit"
             :edit="statusEditParams"
           />
-          <ColumnDirective
-            field="timeline_progress"
-            headerText="Timeline Progress"
-            textAlign="Left"
-            width="110"
-          ></ColumnDirective>
         </ColumnsDirective>
       </GanttComponent>
     </q-card>
