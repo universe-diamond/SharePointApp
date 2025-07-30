@@ -32,17 +32,21 @@ const primaryYAxis = {
   interval: 10,
 };
 
+const legendSettings = { visible: false };
+
 const title = "PROJECT PHASE PROGRESS %";
 
 // Load data on mount
 onMounted(() => {
-  const fields1 = [
+  const fields = [
     "ID",
-    "Title",
+    "project_name",
+    "phase",
+    "task",
+    "sub_task",
     "assigned_to",
     "dependency",
     "start_date",
-    "end_date",
     "deadline_date",
     "duration",
     "passed_days",
@@ -50,16 +54,11 @@ onMounted(() => {
     "timeline_progress",
     "status",
   ];
-  const fields2 = ["ID", "project_name", "phase", "task", "sub_task"];
 
-  getItem("Plans", fields1).then((res) => {
-    planData.value = res;
-  });
-  getAllItems("Tasks", fields2).then((res) => {
+  getAllItems("Tasks", fields).then((res) => {
     taskData.value = res;
   });
 
-  // Fallback timeout to hide loading if data doesn't load within 8 seconds
   setTimeout(() => {
     if (isLoading.value) {
       isLoading.value = false;
@@ -70,19 +69,17 @@ onMounted(() => {
 
 // Watch for selected project changes and data availability
 watch(
-  [() => props.selectedProject, planData, taskData],
-  ([project, plans, tasks]) => {
-    if (project && plans.length > 0 && tasks.length > 0) {
+  [() => props.selectedProject, taskData],
+  ([project, tasks]) => {
+    if (project && tasks.length > 0) {
       processPhaseProgress();
       isLoading.value = false;
     }
   },
-  { deep: true }
+  { immediate: true, deep: true }
 );
 
-// Function to process phase progress data (same as first table in PivotTable)
 const processPhaseProgress = () => {
-  const plans = planData.value;
   const tasks = taskData.value;
 
   // Create a mapping from task title to phase
@@ -92,34 +89,32 @@ const processPhaseProgress = () => {
     taskToPhaseMap[taskKey] = task.phase;
   });
 
-  // Group plans by phase
   const phaseGroups = {};
 
-  plans.forEach((plan) => {
+  tasks.forEach((task) => {
     let phase;
 
-    if (taskToPhaseMap[plan.Title]) {
-      phase = taskToPhaseMap[plan.Title];
+    if (taskToPhaseMap[task.sub_task]) {
+      phase = taskToPhaseMap[task.sub_task];
 
       if (!phaseGroups[phase]) {
         phaseGroups[phase] = [];
       }
-      phaseGroups[phase].push(plan);
+      phaseGroups[phase].push(task);
     }
   });
 
-  // Calculate progress for each phase
   const phaseProgress = [];
 
-  Object.entries(phaseGroups).forEach(([phase, plans]) => {
-    if (plans.length > 0) {
-      const validPlans = plans.filter(
-        (plan) => plan.timeline_progress !== null && plan.timeline_progress !== undefined
+  Object.entries(phaseGroups).forEach(([phase, tasks]) => {
+    if (tasks.length > 0) {
+      const validPlans = tasks.filter(
+        (task) => task.timeline_progress !== null && task.timeline_progress !== undefined
       );
 
       if (validPlans.length > 0) {
-        const totalProgress = validPlans.reduce((sum, plan) => {
-          return sum + (parseFloat(plan.timeline_progress) || 0);
+        const totalProgress = validPlans.reduce((sum, task) => {
+          return sum + (parseFloat(task.timeline_progress) || 0);
         }, 0);
 
         const averageProgress = totalProgress / validPlans.length;
@@ -166,6 +161,7 @@ provide("chart", [ColumnSeries, Category, Tooltip, Legend]);
       :title="title"
       :primaryXAxis="primaryXAxis"
       :primaryYAxis="primaryYAxis"
+      :legendSettings="legendSettings"
       width="100%"
       height="400px"
     >

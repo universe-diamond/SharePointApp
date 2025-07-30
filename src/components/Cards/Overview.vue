@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref, watch, computed } from "vue";
 
-import SunburstCard from "./SunburstCard.vue";
+import StatusBreakdoesnCard from "./StatusBreakdoesnCard.vue";
 import MemberWorkloadCard from "./MemberWorkloadCard.vue";
 import ProjectProgressCard from "./ProjectProgressCard.vue";
 import ProjectTimelineCard from "./ProjectTimelineCard.vue";
@@ -90,7 +90,7 @@ function toggleMember(member) {
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
-            <SunburstCard :baseInfo="projects" :selectedProject="selectedProject" :baseStatus="baseStatus" />
+            <StatusBreakdoesnCard :selectedProject="selectedProject" />
           </q-card-section>
         </q-card>
       </div>

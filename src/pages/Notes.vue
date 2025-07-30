@@ -23,7 +23,9 @@ onMounted(async () => {
   const fields = ["ID", "Title", "note_types"];
   await getItem("Projects", fields).then((res) => {
     noteStore.setProjectList(res);
-    noteStore.setTypeList(res[0].note_types.split(","));
+    if (res[0].note_types !== null) {
+      noteStore.setTypeList(res[0].note_types.split(","));
+    }
   });
   noteStore.setLoading(false);
 });

@@ -4,12 +4,10 @@
       <span v-if="!isFullscreen">⛶</span>
       <span v-else>🗗</span>
     </button>
-    <button class="addtask-btn" @click="toggleAddTaskCard">+</button>
     <SunburstChart
       :baseInfo="props.baseInfo"
       :baseStatus="props.baseStatus"
       :selectedProject="selectedProject"
-      :baseStatus="props.baseStatus"
       component-id="chartId"
       :class="{ 'fullscreen-chart': isFullscreen }"
     />

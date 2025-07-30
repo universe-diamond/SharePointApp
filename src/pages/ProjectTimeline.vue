@@ -61,6 +61,7 @@ const taskFields = {
   assignedTo: "assigned_to",
   Dependency: "dependency",
   startDate: "start_date",
+  endDate: "endDate",
   deadlineDate: "deadline_date",
   duration: "duration",
   passedDays: "passed_days",
@@ -252,14 +253,6 @@ onMounted(() => {
         <ColumnsDirective>
           <ColumnDirective field="ID" headerText="Task ID" width="70" textAlign="Right"></ColumnDirective>
           <ColumnDirective field="sub_task" headerText="Task Name" textAlign="Left" width="200"></ColumnDirective>
-          <ColumnDirective
-            field="assigned_to"
-            headerText="Assigned To"
-            textAlign="Left"
-            width="100"
-            editType="dropdownedit"
-            :edit="assignedEditParams"
-          ></ColumnDirective>
           <ColumnDirective field="dependency" headerText="Dependency" textAlign="Left" width="100"></ColumnDirective>
           <ColumnDirective
             field="start_date"
@@ -291,10 +284,12 @@ onMounted(() => {
             width="100"
           ></ColumnDirective>
           <ColumnDirective
-            field="timeline_progress"
-            headerText="Timeline Progress"
+            field="assigned_to"
+            headerText="Assigned To"
             textAlign="Left"
-            width="110"
+            width="100"
+            editType="dropdownedit"
+            :edit="assignedEditParams"
           ></ColumnDirective>
           <ColumnDirective
             field="status"
@@ -304,6 +299,12 @@ onMounted(() => {
             editType="dropdownedit"
             :edit="statusEditParams"
           />
+          <ColumnDirective
+            field="timeline_progress"
+            headerText="Timeline Progress"
+            textAlign="Left"
+            width="110"
+          ></ColumnDirective>
         </ColumnsDirective>
       </GanttComponent>
     </q-card>

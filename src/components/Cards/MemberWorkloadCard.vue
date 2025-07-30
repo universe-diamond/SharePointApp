@@ -9,7 +9,7 @@ const props = defineProps({
 </script>
 
 <template>
-  <div style="min-height: 625px">
+  <div style="min-height: 500px">
     <MemberWorkloadChart :selectedProject="selectedProject" :memberList="member" :statusList="status" />
   </div>
 </template>
