@@ -61,6 +61,7 @@ const taskFields = {
   assignedTo: "assigned_to",
   Dependency: "dependency",
   startDate: "start_date",
+  endDate: "endDate",
   deadlineDate: "deadline_date",
   duration: "duration",
   passedDays: "passed_days",

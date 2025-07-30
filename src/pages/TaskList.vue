@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from "vue";
 import * as XLSX from "xlsx";
 import { useQuasar } from "quasar";
 
+import SunburstCard from "../components/Cards/SunburstCard.vue";
 import { useTaskStore } from "../store";
 import { addItem } from "../actions/addItem";
 import { getItem } from "../actions/getItem";
@@ -57,6 +58,9 @@ const isImporting = ref(false);
 const importProgress = ref(0);
 const importTotal = ref(0);
 const importCurrent = ref(0);
+
+const showingProject=ref();
+const statusInfo = ref([])
 
 const handleFileUpload = async (event) => {
   const file = event.target.files[0];
@@ -164,7 +168,7 @@ onMounted(() => {
   taskStore.setLoading(true);
   const fields1 = ["ID", "project_name", "phase", "task", "sub_task", "description", "groups", "architecture"];
 
-  const fields2 = ["ID", "Title", "phases"];
+  const fields2 = ["ID", "Title", "phases", "members", "status"];
 
   getAllItems("Tasks", fields1).then(async (res) => {
     getItem("Projects", fields2).then((res2) => {
@@ -429,9 +433,43 @@ const checkedNodes = ref([]); // Add this for checkbox functionality
 const breadcrumbs = ref([]);
 const currentPath = ref([]);
 
+watch(
+  () => breadcrumbs.value,
+  (source) => {
+    if(source.length > 0)
+    showingProject.value = source[0].label;
+  },
+  {immediate: true, deep: true}
+)
+
+watch(
+  () => showingProject.value,
+  (source) => {
+    if(taskStore.projectList.length > 0) {
+      const temp = taskStore.projectList.find(item => item.Title == source)
+      if(temp == undefined || temp == null) {
+        return [];
+      }
+      statusInfo.value = temp.status.split(',').map(item => {
+        const [name, color] = item.split("#");
+        return {
+          name,
+          color: "#" + color,
+        };
+      })
+    }
+  },
+  { immediate: true, deep: true }
+)
+
 function handleProjectChange(val) {
   newTask.value.project_name = val;
   newTask.value.phase = ""; // Reset phase when project changes
+}
+
+function handleEditProjectChange(val, row) {
+  row.project_name = val;
+  row.phase = "";
 }
 
 const filteredTreeData = computed(() => {
@@ -738,28 +776,6 @@ const isNodeMatchingSearch = (node) => {
           <a href="/src/assets/data/Tasklist_template.xlsx">Tasklist_template.xlsx</a>
         </div>
 
-        <!-- Breadcrumbs -->
-        <div v-if="breadcrumbs.length > 0" class="q-mb-md">
-          <q-breadcrumbs class="text-grey-8">
-            <q-breadcrumbs-el
-              icon="home"
-              label="Root"
-              @click="
-                breadcrumbs = [];
-                currentPath = [];
-              "
-              class="cursor-pointer"
-            />
-            <q-breadcrumbs-el
-              v-for="(crumb, index) in breadcrumbs"
-              :key="crumb.key"
-              :label="crumb.label"
-              @click="navigateToBreadcrumb(index)"
-              class="cursor-pointer"
-            />
-          </q-breadcrumbs>
-        </div>
-
         <div
           v-if="isImporting"
           class="q-pa-md"
@@ -848,87 +864,103 @@ const isNodeMatchingSearch = (node) => {
           </div>
         </div>
 
-        <!-- Tree View -->
-        <div
-          class="tree-container"
-          style="border: 1px solid #ececec; border-radius: 8px; background: white; min-height: 600px"
-        >
-          <q-tree
-            :nodes="filteredTreeData"
-            node-key="key"
-            :expanded="expandedNodes"
-            :selected="selectedNodes"
-            :checked="checkedNodes"
-            @update:expanded="expandedNodes = $event"
-            @update:selected="selectedNodes = $event"
-            @update:checked="checkedNodes = $event"
-            :disable="isImporting"
-            style="max-height: 600px; overflow-y: auto"
-          >
-            <template v-slot:default-header="prop">
-              <div
-                class="row items-center full-width cursor-pointer"
-                @click="updateBreadcrumbs(prop.node)"
-                :class="{
-                  'search-match': isNodeMatchingSearch(prop.node),
-                  'checked-item': checkedNodes.includes(prop.node.key) && prop.node.taskData,
-                }"
-                :data-key="prop.node.key"
-              >
-                <!-- Show checkbox only for leaf nodes (tasks) -->
-                <q-checkbox
-                  v-if="prop.node.taskData"
-                  v-model="checkedNodes"
-                  :val="prop.node.key"
-                  @click.stop
-                  class="q-mr-sm"
-                  color="primary"
-                />
-                <q-icon :name="prop.node.icon" class="q-mr-sm" />
-                <div v-if="prop.node.taskData" style="display: inline-block">
-                  <span class="text-weight-medium" v-html="highlightSearchText(prop.node.label)"></span>
-                </div>
-                <span v-else class="text-weight-medium" v-html="highlightSearchText(prop.node.label)"></span>
-                <q-space />
-                <template v-if="prop.node.taskData">
-                  <q-chip
-                    v-if="prop.node.taskData.description"
-                    size="sm"
-                    color="blue-grey-1"
-                    text-color="blue-grey-8"
-                    class="q-mr-xs"
-                  >
-                    <q-tooltip>
-                      <strong>Description:</strong><br />
-                      {{ prop.node.taskData.description }}
-                    </q-tooltip>
-                    <span v-html="highlightSearchText(prop.node.taskData.description)"></span>
-                  </q-chip>
-                  <q-chip
-                    v-if="prop.node.taskData.groups"
-                    size="sm"
-                    color="green-1"
-                    text-color="green-8"
-                    class="q-mr-xs"
-                  >
-                    <q-tooltip>
-                      <strong>Groups:</strong><br />
-                      {{ prop.node.taskData.groups }}
-                    </q-tooltip>
-                    <span v-html="highlightSearchText(prop.node.taskData.groups)"></span>
-                  </q-chip>
-                  <q-chip v-if="prop.node.taskData.architecture" size="sm" color="orange-1" text-color="orange-8">
-                    <q-tooltip>
-                      <strong>Architecture:</strong><br />
-                      {{ prop.node.taskData.architecture }}
-                    </q-tooltip>
-                    <span v-html="highlightSearchText(prop.node.taskData.architecture)"></span>
-                  </q-chip>
-                </template>
-              </div>
-            </template>
-          </q-tree>
+        <div v-if="breadcrumbs.length > 0" class="q-mb-md">
+          <q-breadcrumbs class="text-grey-8">
+            <q-breadcrumbs-el
+              v-for="(crumb, index) in breadcrumbs"
+              :key="crumb.key"
+              :label="crumb.label"
+              @click="navigateToBreadcrumb(index)"
+              class="cursor-pointer"
+            />
+          </q-breadcrumbs>
         </div>
+
+        <div class="row q-col-gutter-md">
+          <div class="col-8">
+            <div
+              class="tree-container"
+              style="border: 1px solid #ececec; border-radius: 8px; background: white; min-height: 600px"
+            >
+              <q-tree
+                :nodes="filteredTreeData"
+                node-key="key"
+                :expanded="expandedNodes"
+                :selected="selectedNodes"
+                :checked="checkedNodes"
+                @update:expanded="expandedNodes = $event"
+                @update:selected="selectedNodes = $event"
+                @update:checked="checkedNodes = $event"
+                :disable="isImporting"
+                style="max-height: 600px; overflow-y: auto"
+              >
+                <template v-slot:default-header="prop">
+                  <div
+                    class="row items-center full-width cursor-pointer"
+                    @click="updateBreadcrumbs(prop.node)"
+                    :class="{
+                      'search-match': isNodeMatchingSearch(prop.node),
+                      'checked-item': checkedNodes.includes(prop.node.key) && prop.node.taskData,
+                    }"
+                    :data-key="prop.node.key"
+                  >
+                    <!-- Show checkbox only for leaf nodes (tasks) -->
+                    <q-checkbox
+                      v-if="prop.node.taskData"
+                      v-model="checkedNodes"
+                      :val="prop.node.key"
+                      @click.stop
+                      class="q-mr-sm"
+                      color="primary"
+                    />
+                    <q-icon :name="prop.node.icon" class="q-mr-sm" />
+                    <span class="text-weight-medium" v-html="highlightSearchText(prop.node.label)"></span>
+                    <q-space />
+                    <template v-if="prop.node.taskData">
+                      <q-chip
+                        v-if="prop.node.taskData.description"
+                        size="sm"
+                        color="blue-grey-1"
+                        text-color="blue-grey-8"
+                        class="q-mr-xs"
+                      >
+                        <q-tooltip>
+                          <strong>Description:</strong><br />
+                          {{ prop.node.taskData.description }}
+                        </q-tooltip>
+                        <span v-html="highlightSearchText(prop.node.taskData.description)"></span>
+                      </q-chip>
+                      <q-chip
+                        v-if="prop.node.taskData.groups"
+                        size="sm"
+                        color="green-1"
+                        text-color="green-8"
+                        class="q-mr-xs"
+                      >
+                        <q-tooltip>
+                          <strong>Groups:</strong><br />
+                          {{ prop.node.taskData.groups }}
+                        </q-tooltip>
+                        <span v-html="highlightSearchText(prop.node.taskData.groups)"></span>
+                      </q-chip>
+                      <q-chip v-if="prop.node.taskData.architecture" size="sm" color="orange-1" text-color="orange-8">
+                        <q-tooltip>
+                          <strong>Architecture:</strong><br />
+                          {{ prop.node.taskData.architecture }}
+                        </q-tooltip>
+                        <span v-html="highlightSearchText(prop.node.taskData.architecture)"></span>
+                      </q-chip>
+                    </template>
+                  </div>
+                </template>
+              </q-tree>
+            </div>
+          </div>
+          <div class="col-4">
+            <SunburstCard :baseInfo="taskStore.projectList" :baseStatus="statusInfo" :selectedProject="showingProject" />
+          </div>
+        </div>
+        
       </div>
     </LoadingSpinner>
   </q-card>
