@@ -3,9 +3,6 @@ import { ref, computed, watch, onMounted } from "vue";
 import LoadingSpinner from "../components/LoadingSpinner.vue";
 import { useScheduleStore } from "../store";
 import { getItem } from "../actions/getItem";
-import { addItem } from "../actions/addItem";
-import { editItem } from "../actions/editItem";
-import { deleteItem } from "../actions/deleteItem";
 import { getAllItems } from "../actions/getAllItem";
 
 const scheduleStore = useScheduleStore();
@@ -143,7 +140,7 @@ async function resetTableRows() {
     const existTasks = scheduleStore.scheduleData.find((item) => item.date == date.toISOString().slice(0, 10));
     days.push({
       label: date.toLocaleDateString(undefined, {
-        weekday: "long",
+        weekday: "short",
         month: "short",
         day: "numeric",
       }),
@@ -244,6 +241,43 @@ function getProjectStatusSummary() {
 
   return statusCount;
 }
+
+function prevWeek() {
+  if (selectedWeek.value > 0) {
+    selectedWeek.value--;
+  } else {
+    // Go to previous month
+    if (selectedMonth.value > 0) {
+      selectedMonth.value--;
+    } else if (selectedYear.value > years[0]) {
+      selectedYear.value--;
+      selectedMonth.value = 11;
+    } else {
+      // Already at the earliest year/month
+      return;
+    }
+    // Set to last week of new month
+    selectedWeek.value = weeksInMonth.value.length - 1;
+  }
+}
+function nextWeek() {
+  if (selectedWeek.value < weeksInMonth.value.length - 1) {
+    selectedWeek.value++;
+  } else {
+    // Go to next month
+    if (selectedMonth.value < 11) {
+      selectedMonth.value++;
+    } else if (selectedYear.value < years[years.length - 1]) {
+      selectedYear.value++;
+      selectedMonth.value = 0;
+    } else {
+      // Already at the latest year/month
+      return;
+    }
+    // Set to first week of new month
+    selectedWeek.value = 0;
+  }
+}
 </script>
 
 <template>
@@ -275,12 +309,14 @@ function getProjectStatusSummary() {
                 {{ week.label }}
               </option>
             </select>
+            <q-btn class="glossy" round color="primary" size="sm" icon="chevron_left" @click="prevWeek" style="margin-right: 6px;" />
+            <q-btn class="glossy" round color="primary" size="sm" icon="chevron_right" @click="nextWeek" />
           </div>
         </div>
         <table class="schedule-table">
           <thead>
             <tr>
-              <th class="left-col" width="180px">Date</th>
+              <th class="left-col" width="150px">Date</th>
               <th class="right-col">Tasks</th>
             </tr>
           </thead>
@@ -299,7 +335,9 @@ function getProjectStatusSummary() {
                     <span
                       v-for="task in getAvailableTasksForDay(row.date)"
                       :key="task.ID"
-                      :title="`𝗜𝗗 ${task.ID}\n𝗣𝗿𝗼𝗷𝗲𝗰𝘁 : ${task.project_name}\n𝗧𝗮𝘀𝗸 : ${task.task}\n𝗦𝘂𝗯𝗧𝗮𝘀𝗸 : ${task.sub_task}\n𝗔𝘀𝘀𝗶𝗴𝗻𝗲𝗱 𝘁𝗼 ${task.assigned_to || '-'}`"
+                      :title="`𝗜𝗗 ${task.ID}\n𝗣𝗿𝗼𝗷𝗲𝗰𝘁 : ${task.project_name}\n𝗧𝗮𝘀𝗸 : ${task.task}\n𝗦𝘂𝗯𝗧𝗮𝘀𝗸 : ${
+                        task.sub_task
+                      }\n𝗔𝘀𝘀𝗶𝗴𝗻𝗲𝗱 𝘁𝗼 ${task.assigned_to || '-'}`"
                       class="filtered-task-item"
                     >
                       <span class="task-id">{{ task.ID }}</span>
