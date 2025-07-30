@@ -8,7 +8,7 @@ import {
   Category,
   Legend,
 } from "@syncfusion/ej2-vue-charts";
-import { getItem } from "../../actions/getItem";
+import { getAllItems } from "../../actions/getAllItem";
 
 const props = defineProps({
   selectedProject: {
@@ -47,10 +47,6 @@ const processMemberWorkload = () => {
   const filteredTasks = props.selectedProject
     ? tasks.filter((task) => task.project_name === props.selectedProject)
     : tasks;
-  console.log({
-    filteredTasks,
-    a: props.selectedProject,
-  });
 
   const memberGroups = {};
 
@@ -85,24 +81,24 @@ const primaryXAxis = {
 };
 
 const primaryYAxis = {
-  title: "Tasks",
+  title: "Counts",
   minimum: 0,
-  interval: 10,
+  maximum: 50,
+  interval: 5,
 };
 
 const title = "MEMBERS WORKLOAD";
 
-// Watch for selected project changes
 watch(
   () => props.selectedProject,
-  () => {
+  (source) => {
     if (tasksData.value.length > 0) {
       processMemberWorkload();
     }
-  }
+  },
+  { immediate: true, deep: true }
 );
 
-// Watch for plan data changes
 watch(
   tasksData,
   () => {
@@ -114,23 +110,9 @@ watch(
 );
 
 onMounted(() => {
-  const fields = [
-    "ID",
-    "Title",
-    "assigned_to",
-    "dependency",
-    "start_date",
-    "end_date",
-    "deadline_date",
-    "duration",
-    "passed_days",
-    "left_days",
-    "timeline_progress",
-    "status",
-    "project_name",
-  ];
+  const fields = ["ID", "project_name", "phase", "task", "sub_task", "assigned_to", "status"];
 
-  getItem("Tasks", fields)
+  getAllItems("Tasks", fields)
     .then((res) => {
       tasksData.value = res;
     })
@@ -154,7 +136,7 @@ provide("chart", [StackingColumnSeries, Category, Legend]);
     </div>
     <ejs-chart
       v-else
-      style="height: 600px"
+      style="height: 500px"
       :title="title"
       :primaryXAxis="primaryXAxis"
       :primaryYAxis="primaryYAxis"
@@ -173,7 +155,7 @@ provide("chart", [StackingColumnSeries, Category, Legend]);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 600px;
+  height: 500px;
   text-align: center;
 }
 

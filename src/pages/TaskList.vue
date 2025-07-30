@@ -3,6 +3,7 @@ import { ref, onMounted, watch, computed } from "vue";
 import * as XLSX from "xlsx";
 import { useQuasar } from "quasar";
 
+import SunburstCard from "../components/Cards/SunburstCard.vue";
 import { useTaskStore } from "../store";
 import { addItem } from "../actions/addItem";
 import { getItem } from "../actions/getItem";
@@ -57,6 +58,9 @@ const isImporting = ref(false);
 const importProgress = ref(0);
 const importTotal = ref(0);
 const importCurrent = ref(0);
+
+const showingProject = ref();
+const statusInfo = ref([]);
 
 const handleFileUpload = async (event) => {
   const file = event.target.files[0];
@@ -166,13 +170,11 @@ const editingTask = ref({});
 const editConfirmState = ref(false);
 const editLoading = ref(false);
 
-
-
 onMounted(() => {
   taskStore.setLoading(true);
   const fields1 = ["ID", "project_name", "phase", "task", "sub_task", "description", "groups", "architecture"];
 
-  const fields2 = ["ID", "Title", "phases"];
+  const fields2 = ["ID", "Title", "phases", "members", "status"];
 
   getAllItems("Tasks", fields1).then(async (res) => {
     getItem("Projects", fields2).then((res2) => {
@@ -293,8 +295,6 @@ const cancelEditTask = () => {
   showEditForm.value = false;
   editConfirmState.value = false;
 };
-
-
 
 const deleteSelectedRows = () => {
   // Get selected task IDs from tree selection
@@ -498,6 +498,34 @@ const selectedNodes = ref([]);
 const checkedNodes = ref([]); // Add this for checkbox functionality
 const breadcrumbs = ref([]);
 const currentPath = ref([]);
+
+watch(
+  () => breadcrumbs.value,
+  (source) => {
+    if (source.length > 0) showingProject.value = source[0].label;
+  },
+  { immediate: true, deep: true }
+);
+
+watch(
+  () => showingProject.value,
+  (source) => {
+    if (taskStore.projectList.length > 0) {
+      const temp = taskStore.projectList.find((item) => item.Title == source);
+      if (temp == undefined || temp == null) {
+        return [];
+      }
+      statusInfo.value = temp.status.split(",").map((item) => {
+        const [name, color] = item.split("#");
+        return {
+          name,
+          color: "#" + color,
+        };
+      });
+    }
+  },
+  { immediate: true, deep: true }
+);
 
 function handleProjectChange(val) {
   newTask.value.project_name = val;
@@ -813,28 +841,6 @@ const isNodeMatchingSearch = (node) => {
           <a href="/src/assets/data/Tasklist_template.xlsx">Tasklist_template.xlsx</a>
         </div>
 
-        <!-- Breadcrumbs -->
-        <div v-if="breadcrumbs.length > 0" class="q-mb-md">
-          <q-breadcrumbs class="text-grey-8">
-            <q-breadcrumbs-el
-              icon="home"
-              label="Root"
-              @click="
-                breadcrumbs = [];
-                currentPath = [];
-              "
-              class="cursor-pointer"
-            />
-            <q-breadcrumbs-el
-              v-for="(crumb, index) in breadcrumbs"
-              :key="crumb.key"
-              :label="crumb.label"
-              @click="navigateToBreadcrumb(index)"
-              class="cursor-pointer"
-            />
-          </q-breadcrumbs>
-        </div>
-
         <div
           v-if="isImporting"
           class="q-pa-md"
@@ -960,15 +966,7 @@ const isNodeMatchingSearch = (node) => {
                   color="primary"
                 />
                 <q-icon :name="prop.node.icon" class="q-mr-sm" />
-                <div v-if="prop.node.taskData" style="display: inline-block">
-                  <q-tooltip> Click to edit task details </q-tooltip>
-                  <span
-                    class="text-weight-medium editable-title"
-                    v-html="highlightSearchText(prop.node.label)"
-                    @click.stop="openEditForm(prop.node.taskData)"
-                  ></span>
-                </div>
-                <span v-else class="text-weight-medium" v-html="highlightSearchText(prop.node.label)"></span>
+                <span class="text-weight-medium" v-html="highlightSearchText(prop.node.label)"></span>
                 <q-space />
                 <template v-if="prop.node.taskData">
                   <q-chip
