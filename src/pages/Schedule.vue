@@ -34,41 +34,62 @@ const selectedMonth = ref(new Date().getMonth());
 const selectedWeek = ref();
 
 const selectedProject = ref("");
-const selectedPhase = ref("");
+const availableStatus = ref({});
 
 const tableRows = ref([]);
-const selectedTask = ref([]);
+
+const projectOptions = ref([]);
 
 onMounted(async () => {
-  if (!scheduleStore.total.length) {
-    scheduleStore.setLoading(true);
-    const fields = ["ID", "project_name", "phase", "task", "sub_task"];
-    await getAllItems("Tasks", fields).then((res) => {
-      scheduleStore.setTotal(res);
-    });
+  scheduleStore.setLoading(true);
+  const fields = [
+    "ID",
+    "project_name",
+    "phase",
+    "task",
+    "sub_task",
+    "assigned_to",
+    "dependency",
+    "start_date",
+    "deadline_date",
+    "duration",
+    "passed_days",
+    "left_days",
+    "timeline_progress",
+    "status",
+  ];
+  await getAllItems("Tasks", fields).then((res) => {
+    scheduleStore.setTotal(res);
+  });
 
-    const fields2 = ["ID", "date", "task_ids"];
+  const fields1 = ["ID", "Title", "phases", "members", "status", "key_IDs", "months", "years", "note_types"];
 
-    const res = await getItem("Schedules", fields2);
+  projectOptions.value = await getItem("Projects", fields1);
 
-    res.forEach((item) => {
-      scheduleStore.addScheduleData(item.ID, item.date, item.task_ids.split(","));
-    });
-
-    scheduleStore.setLoading(false);
-    resetTableRows();
-  } else {
-    resetTableRows();
-    loading.value = false;
-  }
+  scheduleStore.setLoading(false);
+  resetTableRows();
 });
 
-watch(selectedProject, (newVal) => {
-  scheduleStore.setSelectedProject(newVal);
-});
-watch(selectedPhase, (newVal) => {
-  scheduleStore.setSelectedPhase(newVal);
-});
+watch(
+  [selectedProject, projectOptions],
+  ([selectedProject, projectOptions]) => {
+    scheduleStore.setSelectedProject(selectedProject);
+
+    // Save the status of the selected project as availableStatus
+    if (selectedProject) {
+      const project = Object.values(projectOptions).find((it) => it.Title == selectedProject);
+
+      availableStatus.value = {};
+      (project ? (project.status ? project.status : "") : "").split(",").forEach((it) => {
+        const [name, color] = it.split("#");
+        availableStatus.value[name] = "#" + color;
+      });
+    } else {
+      availableStatus.value = {};
+    }
+  },
+  { deep: true, immediate: true }
+);
 
 function getDaysInMonth(year, month) {
   return new Date(year, month + 1, 0).getDate();
@@ -123,6 +144,7 @@ async function resetTableRows() {
     days.push({
       label: date.toLocaleDateString(undefined, {
         weekday: "long",
+        month: "short",
         day: "numeric",
       }),
       date: date.toISOString().slice(0, 10),
@@ -132,27 +154,43 @@ async function resetTableRows() {
     });
   }
   tableRows.value = days;
-  selectedTask.value = Array(days.length).fill(null);
   await new Promise((resolve) => setTimeout(resolve, 500));
   loading.value = false;
 }
 
 watch([selectedYear, selectedMonth, selectedWeek], resetTableRows);
 
-function addTask(rowIdx) {
-  const task = selectedTask.value[rowIdx];
-  if (task && !tableRows.value[rowIdx].tasks.includes(task)) {
-    tableRows.value[rowIdx].tasks.push(task);
-  }
-  selectedTask.value[rowIdx] = null;
-}
-
 function removeTask(rowIdx, tIdx) {
   tableRows.value[rowIdx].tasks.splice(tIdx, 1);
 }
 
-function availableTasks(rowTasks) {
-  return scheduleStore.filteredTasks.filter((task) => !rowTasks.includes(task));
+function getAvailableTasksForDay(date) {
+  if (!scheduleStore.selectedProject) {
+    return [];
+  }
+
+  const targetDate = new Date(date);
+
+  return scheduleStore.total.filter((taskObject) => {
+    // Check if task belongs to selected project
+    if (taskObject.project_name !== scheduleStore.selectedProject) {
+      return false;
+    }
+
+    if (!taskObject.start_date || !taskObject.duration) {
+      return false;
+    }
+
+    const startDate = new Date(taskObject.start_date);
+    const duration = parseInt(taskObject.duration) || 0;
+
+    // Calculate end date by adding duration to start date
+    const endDate = new Date(startDate);
+    endDate.setDate(startDate.getDate() + duration);
+
+    // Check if the target date falls within the task's timeline
+    return targetDate >= startDate && targetDate <= endDate;
+  });
 }
 
 function isCurrent(label) {
@@ -165,53 +203,46 @@ function isCurrent(label) {
   );
 }
 
-const projectOptions = computed(() => {
-  return [...new Set(scheduleStore.total.map((p) => p.project_name))];
-});
-const phaseOptions = computed(() => {
-  if (!selectedProject) return;
-  const phases = scheduleStore.total.filter((item) => item.project_name == selectedProject.value);
-  scheduleStore.setPhases(phases);
-  return [...new Set(phases.map((p) => p.phase))];
-});
+function getStatusName(statusString) {
+  if (!statusString) return "";
+  // Extract status name from format "StatusName#ColorCode"
+  const match = statusString.match(/^([^#]+)/);
+  return match ? match[1].trim() : "";
+}
 
-function archiveSchedule() {
-  const archiveData = tableRows.value.map((row) => ({
-    date: row.date,
-    task_ids: row.tasks
-      .map((task) => {
-        const match = scheduleStore.total.find((t) => t.task === task);
-        return match ? match.ID : null;
-      })
-      .filter(Boolean),
-  }));
+function getStatusColor(statusString) {
+  return availableStatus.value[statusString] || "#666";
+}
 
-  console.log(archiveData);
+// Get all unique statuses for the selected project
+function getProjectStatuses() {
+  if (!scheduleStore.selectedProject) return [];
 
-  archiveData.map((item) => {
-    if (item.task_ids.length !== 0) {
-      if (scheduleStore.scheduleData.find((each) => each.date == item.date)) {
-        const editingItem = scheduleStore.scheduleData.find((each) => each.date == item.date);
-        editItem("Schedules", editingItem.ID, { task_ids: item.task_ids.join(",") }).then((res) => {
-          scheduleStore.editScheduleData(editingItem.ID, item.date, item.task_ids);
-        });
-      } else {
-        addItem("Schedules", { date: item.date, task_ids: item.task_ids.join(",") }).then((res) => [
-          scheduleStore.addScheduleData(res.ID, item.date, item.task_ids),
-        ]);
-      }
+  const projectTasks = scheduleStore.total.filter((task) => task.project_name === scheduleStore.selectedProject);
+
+  const statuses = projectTasks
+    .map((task) => task.status)
+    .filter((status) => status) // Remove empty/null statuses
+    .filter((status, index, arr) => arr.indexOf(status) === index); // Remove duplicates
+
+  return statuses;
+}
+
+// Get status summary for the selected project
+function getProjectStatusSummary() {
+  if (!scheduleStore.selectedProject) return {};
+
+  const projectTasks = scheduleStore.total.filter((task) => task.project_name === scheduleStore.selectedProject);
+
+  const statusCount = {};
+  projectTasks.forEach((task) => {
+    if (task.status) {
+      const statusName = getStatusName(task.status);
+      statusCount[statusName] = (statusCount[statusName] || 0) + 1;
     }
   });
 
-  scheduleStore.scheduleData.map((item) => {
-    const existing = archiveData.filter((each) => each.task_ids.length !== 0).find((each) => each.date == item.date);
-
-    if (!existing) {
-      deleteItem("Schedules", [item.ID]).then((res) => {
-        scheduleStore.removeScheduleData(item.date, item.ID);
-      });
-    }
-  });
+  return statusCount;
 }
 </script>
 
@@ -220,36 +251,25 @@ function archiveSchedule() {
     <LoadingSpinner :showing="loading" text="Loading schedule...">
       <div>
         <div class="schedule-header">
-          <div class="schedule-project-phase-selects">
-            <span class="select-icon">PROJECT : </span>
-            <select v-model="selectedProject" class="selectbox">
-              <option value="" disabled>Select Project</option>
-              <option v-for="proj in projectOptions" :key="proj" :value="proj">
-                {{ proj }}
-              </option>
-            </select>
-            <span class="select-icon">PHASE : </span>
-            <select v-model="selectedPhase" class="selectbox" :disabled="!selectedProject">
-              <option value="" disabled>Select Phase</option>
-              <option v-for="phase in phaseOptions" :key="phase" :value="phase">
-                {{ phase }}
+          <div class="schedule-project-selects">
+            <select v-model="selectedProject" class="selectbox" :class="{ 'no-project-selected': !selectedProject }">
+              <option value="" disabled>Select project</option>
+              <option v-for="proj in projectOptions" :key="proj" :value="proj.Title">
+                {{ proj.Title }}
               </option>
             </select>
           </div>
           <div class="schedule-selects">
-            <span class="select-icon">YEAR : </span>
             <select v-model="selectedYear" class="selectbox">
               <option v-for="year in years" :key="year" :value="year">
                 {{ year }}
               </option>
             </select>
-            <span class="select-icon">MONTH : </span>
             <select v-model="selectedMonth" class="selectbox">
               <option v-for="(month, idx) in months" :key="month" :value="idx">
                 {{ month }}
               </option>
             </select>
-            <span class="select-icon">WEEK : </span>
             <select v-model="selectedWeek" class="selectbox">
               <option v-for="(week, idx) in weeksInMonth" :key="week.label" :value="idx">
                 {{ week.label }}
@@ -260,14 +280,14 @@ function archiveSchedule() {
         <table class="schedule-table">
           <thead>
             <tr>
-              <th class="left-header">Days</th>
-              <th>Tasks</th>
+              <th class="left-col" width="180px">Date</th>
+              <th class="right-col">Tasks</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="(row, rowIdx) in tableRows" :key="row.label" :class="{ 'highlight-row': isCurrent(row.label) }">
               <td class="left-col">{{ row.label }}</td>
-              <td>
+              <td class="right-col">
                 <div class="task-list">
                   <transition-group name="fade" tag="span" style="padding-right: 10px">
                     <span v-for="(task, tIdx) in row.tasks" :key="task" class="task-chip" :title="task">
@@ -275,20 +295,31 @@ function archiveSchedule() {
                       <button @click="removeTask(rowIdx, tIdx)" class="chip-remove">&times;</button>
                     </span>
                   </transition-group>
-                  <select v-model="selectedTask[rowIdx]" @change="addTask(rowIdx)" class="add-task-select">
-                    <option :value="null">Add task...</option>
-                    <option v-for="task in availableTasks(row.tasks)" :key="task" :value="task" :title="task">
-                      {{ task.length > 25 ? task.slice(0, 25) + "…" : task }}
-                    </option>
-                  </select>
+                  <div v-if="getAvailableTasksForDay(row.date).length > 0">
+                    <span
+                      v-for="task in getAvailableTasksForDay(row.date)"
+                      :key="task.ID"
+                      :title="`𝗜𝗗 ${task.ID}\n𝗣𝗿𝗼𝗷𝗲𝗰𝘁 : ${task.project_name}\n𝗧𝗮𝘀𝗸 : ${task.task}\n𝗦𝘂𝗯𝗧𝗮𝘀𝗸 : ${task.sub_task}\n𝗔𝘀𝘀𝗶𝗴𝗻𝗲𝗱 𝘁𝗼 ${task.assigned_to || '-'}`"
+                      class="filtered-task-item"
+                    >
+                      <span class="task-id">{{ task.ID }}</span>
+                      <span class="task-title">{{ task.sub_task }}</span>
+                      <span
+                        v-if="task.status"
+                        class="status-badge"
+                        :style="{ backgroundColor: getStatusColor(task.status) }"
+                        :title="getStatusName(task.status)"
+                      >
+                        {{ getStatusName(task.status) }}
+                      </span>
+                    </span>
+                  </div>
+                  <div v-else class="no-tasks-message">No tasks available for this day</div>
                 </div>
               </td>
             </tr>
           </tbody>
         </table>
-        <div class="archive-btn-container">
-          <button class="archive-btn" @click="archiveSchedule">Archive</button>
-        </div>
       </div>
     </LoadingSpinner>
   </q-card>
@@ -296,8 +327,6 @@ function archiveSchedule() {
 
 <style lang="scss" scoped>
 .schedule-root {
-  font-family: "Segoe UI", "Roboto", "Arial", sans-serif;
-  background: #ffffff;
   border-radius: 15px;
   min-height: 80vh;
   padding: 2rem;
@@ -310,12 +339,60 @@ function archiveSchedule() {
   flex-direction: row;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin: 0 10px 14px;
 }
-.schedule-project-phase-selects {
+.schedule-project-selects {
   display: flex;
   align-items: center;
-  gap: 12px;
+
+  select {
+    width: 320px;
+  }
+}
+
+.available-status-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 16px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+}
+
+.available-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #059669;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.available-status-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.available-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
 }
 .schedule-title {
   font-size: 2rem;
@@ -328,8 +405,6 @@ function archiveSchedule() {
 .schedule-selects {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
 }
 .selectbox {
   padding: 6px 12px;
@@ -337,16 +412,17 @@ function archiveSchedule() {
   border: 1px solid #cbd5e1;
   background: #f1f5f9;
   font-size: 15px;
-  margin: 0 2px;
+  margin: 0 10px;
   transition: border 0.2s;
   outline: none;
   &:focus {
     border: 1.5px solid #6366f1;
   }
-}
-.select-icon {
-  font-size: 1.1em;
-  margin: 0 2px 0 8px;
+
+  &.no-project-selected {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.2);
+  }
 }
 .schedule-card {
   background: #fff;
@@ -360,9 +436,8 @@ function archiveSchedule() {
 .schedule-table {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0;
+  border-spacing: 4px;
   font-size: 1rem;
-  border-top: 1px solid #dddddd;
 }
 .schedule-table th {
   background: #f1f5f9;
@@ -386,8 +461,12 @@ function archiveSchedule() {
   background: #f8fafc;
   font-weight: 500;
   color: #6366f1;
-  border-radius: 8px 0 0 8px;
+  border-radius: 12px 0 0 12px;
   border-right: 1px solid #e7e8fd;
+}
+.right-col {
+  border-radius: 0 12px 12px 0;
+  border-right: 1px solid #e7e8fd80;
 }
 .highlight-row td {
   background: linear-gradient(90deg, #e0e7ff 0%, #f1f5f9 100%) !important;
@@ -399,8 +478,6 @@ function archiveSchedule() {
 }
 .task-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
   align-items: center;
 }
 .task-chip {
@@ -439,23 +516,98 @@ function archiveSchedule() {
   transition: color 0.2s;
   flex-shrink: 0;
 }
-.add-task-select {
-  min-width: 150px;
-  max-width: 150px;
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: #f1f5f9;
-  font-size: 14px;
-  margin-left: 4px;
-  transition: border 0.2s;
-  outline: none;
-  &:focus {
-    border: 1.5px solid #6366f1;
-  }
+
+.filtered-task-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.08) 100%);
+  color: #4c51bf;
+  border-radius: 20px;
+  padding: 4px 12px 4px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 2px solid #667eea26;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin: 4px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  cursor: default;
+  max-width: 360px;
+
+  &:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15) 0%, rgba(118, 75, 162, 0.15) 100%);
+    border-color: #667eea;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.2);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-radius: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  &:hover::before {
+    opacity: 1;
+  }
+}
+
+.task-id {
+  color: #fff;
+  background-color: #7c8daa;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-weight: 700;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.task-title {
+  flex: 1;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+
+  &:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+}
+
+.no-tasks-message {
+  color: #8e9cb0;
+  font-style: italic;
+  font-size: 14px;
 }
 .fade-enter-active,
 .fade-leave-active {
@@ -465,30 +617,5 @@ function archiveSchedule() {
 .fade-leave-to {
   opacity: 0;
   transform: scale(0.7);
-}
-.archive-btn {
-  background: linear-gradient(90deg, #6366f1 0%, #818cf8 100%);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 12px 32px;
-  font-size: 1.1em;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.12);
-  cursor: pointer;
-  transition: background 0.2s, box-shadow 0.2s;
-  z-index: 10;
-}
-.archive-btn:hover {
-  background: linear-gradient(90deg, #818cf8 0%, #6366f1 100%);
-  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.18);
-}
-.archive-btn-container {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  width: 100%;
-  margin-top: 2rem;
-  position: static;
 }
 </style>
