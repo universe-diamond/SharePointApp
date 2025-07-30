@@ -125,6 +125,12 @@ export const useDailytaskStore = defineStore("dailytask", {
       const updated = this.allBoards.find((item) => item.ID == id);
       updated.task_ids = task_ids.join(",");
     },
+    updateTask(id, data) {
+      this.allTasks = this.allTasks.map((item) => {
+        if (item.ID == id) return { ...item, ...data };
+        return item;
+      });
+    },
   },
 });
 
@@ -170,7 +176,6 @@ export const useScheduleStore = defineStore("schedule", {
     },
     setSelectedPhase(phase) {
       this.selectedPhase = phase;
-      this.updateFilteredTasks();
     },
     setSelectedYear(year) {
       this.selectedYear = year;
@@ -182,14 +187,12 @@ export const useScheduleStore = defineStore("schedule", {
       this.selectedWeek = week;
     },
     updateFilteredTasks() {
-      if (!this.selectedProject || !this.selectedPhase) {
+      if (!this.selectedProject) {
         this.filteredTasks = [];
         return;
       }
 
-      const filtered = this.total.filter(
-        (item) => item.project_name === this.selectedProject && item.phase === this.selectedPhase
-      );
+      const filtered = this.total.filter((item) => item.project_name === this.selectedProject);
 
       this.filteredTasks = [...new Set(filtered.map((item) => item.task))];
     },
