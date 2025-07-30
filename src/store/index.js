@@ -282,6 +282,9 @@ export const useTimelineStore = defineStore("timeline", {
     currentProject: null,
   }),
   actions: {
+    setProjects(payload) {
+      this.ProjectsInfo = payload;
+    },
     setList(payload) {
       this.timelineList = payload;
     },

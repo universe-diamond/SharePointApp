@@ -38,13 +38,7 @@ const title = "PROJECT PHASE PROGRESS %";
 
 // Load data on mount
 onMounted(() => {
-  const fields = [
-    "ID",
-    "project_name",
-    "phase",
-    "task",
-    "sub_task",
-    "assigned_to",
+  const fields = ["ID", "project_name", "phase", "task", "sub_task","assigned_to",
     "dependency",
     "start_date",
     "deadline_date",
@@ -52,7 +46,7 @@ onMounted(() => {
     "passed_days",
     "left_days",
     "timeline_progress",
-    "status",
+    "status"
   ];
 
   getAllItems("Tasks", fields).then((res) => {

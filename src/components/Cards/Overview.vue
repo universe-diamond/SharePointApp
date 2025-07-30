@@ -94,6 +94,31 @@ function toggleMember(member) {
           </q-card-section>
         </q-card>
       </div>
+      <!-- <div class="col-2">
+        <q-card flat bordered>
+          <q-card-section>
+            <div style="min-height: 625px; overflow-y: auto">
+              <ul class="fantastic-member-list">
+                <li
+                  v-for="member in memberList"
+                  :key="member"
+                  :class="[
+                    'fantastic-member-item',
+                    { selected: selectedMembers.includes(member) },
+                  ]"
+                >
+                  <q-checkbox
+                    :model-value="selectedMembers.includes(member)"
+                    @update:model-value="toggleMember(member)"
+                    :label="member"
+                    dense
+                  />
+                </li>
+              </ul>
+            </div>
+          </q-card-section>
+        </q-card>
+      </div> -->
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
@@ -110,6 +135,31 @@ function toggleMember(member) {
           </q-card-section>
         </q-card>
       </div>
+      <!-- <div class="col-2">
+        <q-card flat bordered>
+          <q-card-section>
+            <div style="min-height: 342px; overflow-y: auto">
+              <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px;">
+                <li
+                  v-for="project in projects.map(item => item.Title)"
+                  :key="project"
+                  :class="[
+                    'fantastic-member-item',
+                    { selected: selectedProject.includes(project) },
+                  ]"
+                >
+                  <q-checkbox
+                    :model-value="selectedProject.includes(project)"
+                    @update:model-value="toggleMember(project)"
+                    :label="project"
+                    dense
+                  />
+                </li>
+              </ul>
+            </div>
+          </q-card-section>
+        </q-card>
+      </div> -->
       <div class="col-6">
         <q-card flat bordered>
           <q-card-section>
