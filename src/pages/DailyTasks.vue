@@ -244,7 +244,7 @@ function getStatusColor(statusName) {
               @add="(event) => onTaskAdd(colIdx)(event)"
               @end="(event) => onDragEnd(colIdx)(event)"
             >
-              <template #item="{ element: task, index }">
+              <template :item="{ element: task, index }">
                 <div class="kanban-card">
                   <div class="kanban-card-title-row">
                     <span class="kanban-card-title" :title="task.title">{{ task.title }}</span>
