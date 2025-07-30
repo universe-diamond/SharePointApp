@@ -125,6 +125,12 @@ export const useDailytaskStore = defineStore("dailytask", {
       const updated = this.allBoards.find((item) => item.ID == id);
       updated.task_ids = task_ids.join(",");
     },
+    updateTask(id, data) {
+      this.allTasks = this.allTasks.map((item) => {
+        if (item.ID == id) return { ...item, ...data };
+        return item;
+      });
+    },
   },
 });
 
